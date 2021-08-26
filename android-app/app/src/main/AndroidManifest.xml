@@ -3,15 +3,27 @@
     package="pl.jakubweg.jetrun">
 
     <application
-        android:isGame="false"
-        android:appCategory="productivity"
+        android:name=".JetRunApplication"
         android:allowBackup="true"
+        android:appCategory="productivity"
         android:fullBackupContent="true"
         android:icon="@mipmap/ic_launcher"
+        android:isGame="false"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.JetRun"
-        android:name=".JetRunApplication"/>
+        android:theme="@style/Theme.JetRun">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/title_activity_main"
+            android:theme="@style/Theme.JetRun.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
 
 </manifest>
