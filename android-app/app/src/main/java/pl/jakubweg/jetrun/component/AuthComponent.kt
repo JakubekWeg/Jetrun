@@ -25,7 +25,9 @@ sealed class AuthState {
 interface AuthComponent {
     val authState: LiveData<AuthState>
     fun signOut()
-    suspend fun signIn(activity: Activity): Boolean
+    fun createSignInProvider(): OAuthProvider
+    suspend fun signIn(activity: Activity, provider: OAuthProvider): Boolean
+    suspend fun signInAnonymously(): Boolean
 }
 
 class FirebaseAuthComponent @Inject constructor(
@@ -48,15 +50,35 @@ class FirebaseAuthComponent @Inject constructor(
         setState(NotSigned())
     }
 
-    override suspend fun signIn(activity: Activity): Boolean {
+    override suspend fun signInAnonymously(): Boolean {
         check(_authState.value is NotSigned)
         check(auth.currentUser == null)
 
         setState(Authorizing)
 
-        val provider = OAuthProvider.newBuilder("github.com").apply {
-            scopes = listOf("user:email")
-        }.build()
+        return try {
+            val result = auth.signInAnonymously().await()
+            val user = result?.user
+            setState(
+                if (user == null)
+                    NotSigned()
+                else
+                    Signed(user)
+            )
+            user != null
+            true
+        } catch (e: FirebaseException) {
+            // cancelled
+            setState(NotSigned.FailedToAuthorize(e.localizedMessage ?: "unknown error"))
+            false
+        }
+    }
+
+    override suspend fun signIn(activity: Activity, provider: OAuthProvider): Boolean {
+        check(_authState.value is NotSigned)
+        check(auth.currentUser == null)
+
+        setState(Authorizing)
 
         return try {
             val result = auth.startActivityForSignInWithProvider(activity, provider).await()
@@ -74,6 +96,13 @@ class FirebaseAuthComponent @Inject constructor(
             setState(NotSigned.FailedToAuthorize(e.localizedMessage ?: "unknown error"))
             false
         }
+    }
+
+    override fun createSignInProvider(): OAuthProvider {
+        val provider = OAuthProvider.newBuilder("github.com").apply {
+            scopes = listOf("user:email")
+        }.build()
+        return provider
     }
 
     override fun onAuthStateChanged(_0: FirebaseAuth) {

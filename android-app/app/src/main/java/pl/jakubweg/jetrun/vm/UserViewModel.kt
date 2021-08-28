@@ -19,7 +19,9 @@ class UserViewModel @Inject constructor(
         if (works) return
         works = true
         viewModelScope.launch {
-            auth.signIn(activity)
+//            val provider = auth.createSignInProvider()
+//            auth.signIn(activity, provider)
+            auth.signInAnonymously()
             works = false
         }
     }
