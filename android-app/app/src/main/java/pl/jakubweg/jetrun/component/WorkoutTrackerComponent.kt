@@ -4,19 +4,25 @@ import androidx.lifecycle.MutableLiveData
 import pl.jakubweg.jetrun.component.WorkoutState.None
 import pl.jakubweg.jetrun.component.WorkoutState.Started.RequestedStop
 import pl.jakubweg.jetrun.component.WorkoutState.Started.WaitingForLocation
+import pl.jakubweg.jetrun.component.WorkoutState.Started.WaitingForLocation.*
 import pl.jakubweg.jetrun.util.nonMutable
 import javax.inject.Inject
 
 sealed class WorkoutState {
     object None : WorkoutState()
     sealed class Started : WorkoutState() {
-        object WaitingForLocation : Started()
+        sealed class WaitingForLocation : Started() {
+            object NoPermission : WaitingForLocation()
+            object InitialWaiting : WaitingForLocation()
+        }
+
         object RequestedStop : Started()
     }
 }
 
 class WorkoutTrackerComponent @Inject constructor(
-    private val timer: TimerCoroutineComponent
+    private val timer: TimerCoroutineComponent,
+    private val location: LocationProviderComponent
 ) {
     private val _workoutState = MutableLiveData<WorkoutState>(None)
 
@@ -24,7 +30,13 @@ class WorkoutTrackerComponent @Inject constructor(
 
     fun start() {
         check(_workoutState.value is None) { "Workout already started" }
-        _workoutState.postValue(WaitingForLocation)
+
+        if (location.hasLocationPermission) {
+            location.start()
+            _workoutState.postValue(InitialWaiting)
+        } else {
+            _workoutState.postValue(NoPermission)
+        }
 
         timer.start(1000L, this::timerCallback)
     }
@@ -37,8 +49,15 @@ class WorkoutTrackerComponent @Inject constructor(
     private fun timerCallback() {
         val currentState = _workoutState.value ?: return
         when (currentState) {
+            NoPermission -> {
+                if (location.hasLocationPermission) {
+                    location.start()
+                    _workoutState.postValue(InitialWaiting)
+                }
+            }
             RequestedStop -> {
                 timer.stop()
+                location.stop()
                 _workoutState.postValue(None)
             }
             else -> println("WARNING^WorkoutTrackerComponent: unknown state ${currentState.javaClass.simpleName}")

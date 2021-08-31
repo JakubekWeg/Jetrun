@@ -4,7 +4,6 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import junit.framework.TestCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestCoroutineDispatcher
-import kotlinx.coroutines.test.runBlockingTest
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,7 +30,7 @@ class WorkoutTrackerComponentTest : TestCase() {
     }
 
     @Test(expected = IllegalStateException::class)
-    fun `start() when started fails`() {
+    fun `start() fails if already started`() {
         val c = createComponent()
         c.start()
         c.start()
@@ -56,8 +55,10 @@ class WorkoutTrackerComponentTest : TestCase() {
     }
 
     @Test
-    fun `stopWorkout() stops workout`() {
-        val c = createComponent()
+    fun `stopWorkout() stops workout and does stop location service`() {
+        val location = mock(LocationProviderComponent::class.java)
+        `when`(location.hasLocationPermission).thenReturn(true)
+        val c = createComponent(location = location)
 
         testCoroutineDispatcher.pauseDispatcher()
         c.start()
@@ -72,13 +73,43 @@ class WorkoutTrackerComponentTest : TestCase() {
         assertTrue(c.workoutState.value is None)
 
         testCoroutineDispatcher.cleanupTestCoroutines()
+
+        verify(location, times(1)).start()
+        verify(location, times(1)).stop()
+    }
+
+    @Test
+    fun `tracker waits for permission being granted before requesting location updates`() {
+        testCoroutineDispatcher.pauseDispatcher()
+        val location = mock(LocationProviderComponent::class.java)
+        val c = createComponent(location = location)
+
+        `when`(location.hasLocationPermission).thenReturn(false)
+
+        c.start()
+        assertTrue(c.workoutState.value is Started)
+
+        testCoroutineDispatcher.advanceTimeBy(2000L)
+        testCoroutineDispatcher.advanceTimeBy(2000L)
+        testCoroutineDispatcher.advanceTimeBy(2000L)
+
+        assertTrue(c.workoutState.value is Started.WaitingForLocation)
+        assertTrue(c.workoutState.value is Started.WaitingForLocation.NoPermission)
+
+        `when`(location.hasLocationPermission).thenReturn(true)
+
+        testCoroutineDispatcher.advanceTimeBy(5000L)
+
+        assertTrue(c.workoutState.value is Started.WaitingForLocation.InitialWaiting)
     }
 
     private fun createComponent(
         timer: TimerCoroutineComponent = TimerCoroutineComponent(
             testCoroutineDispatcher
-        )
+        ),
+        location: LocationProviderComponent = mock(LocationProviderComponent::class.java)
     ) = WorkoutTrackerComponent(
-        timer = timer
+        timer = timer,
+        location = location,
     )
 }
