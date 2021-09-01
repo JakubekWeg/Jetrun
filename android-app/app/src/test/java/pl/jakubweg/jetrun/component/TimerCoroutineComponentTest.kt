@@ -53,7 +53,21 @@ class TimerCoroutineComponentTest : TestCase() {
         } finally {
             timerCoroutineComponent.stop()
         }
-
     }
 
+
+    @Test
+    fun `Timer can be used multiple times when started and then stopped`() {
+        val counter = AtomicInteger(0)
+        testDispatcher.pauseDispatcher()
+        val timerCoroutineComponent = TimerCoroutineComponent(testDispatcher)
+        for (iteration in 1..10) {
+            timerCoroutineComponent.start(1000) {
+                counter.incrementAndGet()
+            }
+            testDispatcher.advanceTimeBy(500)
+            assertEquals(iteration, counter.get())
+            timerCoroutineComponent.stop()
+        }
+    }
 }

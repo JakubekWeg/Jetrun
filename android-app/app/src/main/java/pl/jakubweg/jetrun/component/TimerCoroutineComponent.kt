@@ -9,12 +9,13 @@ class TimerCoroutineComponent @Inject constructor(
 ) {
     private val scope = CoroutineScope(dispatcher)
     private val started = AtomicBoolean()
+    private var job: Job? = null
 
     fun start(delayMillis: Long, callback: () -> Unit) {
         val changedStatus = started.compareAndSet(false, true)
         check(changedStatus) { "Timer was already started" }
 
-        scope.launch {
+        this.job = scope.launch {
             while (true) {
                 callback.invoke()
                 delay(delayMillis)
@@ -23,7 +24,7 @@ class TimerCoroutineComponent @Inject constructor(
     }
 
     fun stop() {
-        scope.cancel()
+        job?.cancel()
         started.set(false)
     }
 }
