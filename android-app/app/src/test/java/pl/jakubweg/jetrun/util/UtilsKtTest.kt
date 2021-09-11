@@ -19,12 +19,80 @@ class UtilsKtTest : TestCase() {
 
         assertSame(data, data2)
     }
+
+    @Test
+    fun `assertThrows works if thrown`() {
+        assertThrows { throw Exception() }
+    }
+
+    @Test(expected = Throwable::class)
+    fun `assertThrows works if not thrown`() {
+        assertThrows { }
+    }
+
+    @Test
+    fun `assertIs works when using class java`() {
+        open class A
+        class B : A()
+
+        val a = A()
+        val b = B()
+
+        assertIs(A::class.java, a)
+        assertIs(A::class.java, b)
+        assertIs(B::class.java, b)
+        assertThrows {
+            assertIs(B::class.java, a)
+        }
+    }
+
+    @Test
+    fun `assertIs works when using class`() {
+        open class A
+        class B : A()
+
+        val a = A()
+        val b = B()
+
+        assertIs(A::class, a)
+        assertIs(A::class, b)
+        assertIs(B::class, b)
+        assertThrows {
+            assertIs(B::class, a)
+        }
+    }
+
+    @Test
+    fun `assertIs works when using instances`() {
+        open class A
+        class B : A()
+
+        val a = A()
+        val b = B()
+
+        assertIs(a, a)
+        assertIs(a, b)
+        assertIs(b, b)
+        assertThrows {
+            assertIs(b, a)
+        }
+    }
+}
+
+fun assertThrows(callback: () -> Unit) {
+    try {
+        callback.invoke()
+    } catch (e: Throwable) {
+        // ignore
+        return
+    }
+    Assert.fail("This method should have thrown an exception")
 }
 
 inline fun <reified T> anyNonNull(): T = Mockito.any(T::class.java)
 
 inline fun <reified T> assertIs(expectedClass: Class<T>, value: Any?) {
-    if (value !is T)
+    if (value == null || !expectedClass.isInstance(value))
         Assert.fail("Expected value of class ${expectedClass.simpleName}, but got ${value?.javaClass?.simpleName}")
 }
 
