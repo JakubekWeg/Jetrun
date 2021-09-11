@@ -12,8 +12,9 @@ import org.junit.runners.JUnit4
 import org.mockito.Mockito.*
 import pl.jakubweg.jetrun.component.WorkoutState.None
 import pl.jakubweg.jetrun.component.WorkoutState.Started
-import pl.jakubweg.jetrun.component.WorkoutState.Started.RequestedStop
+import pl.jakubweg.jetrun.component.WorkoutState.Started.*
 import pl.jakubweg.jetrun.util.anyNonNull
+import pl.jakubweg.jetrun.util.assertIs
 
 @ExperimentalCoroutinesApi
 @RunWith(JUnit4::class)
@@ -28,6 +29,13 @@ class WorkoutTrackerComponentTest : TestCase() {
                 anyLong()
             )
         ).thenReturn(SnapshotOfferResult.Accepted)
+    }
+
+    private val lastLocationData = MutableLiveData<LocationSnapshot>()
+
+    private val locationProviderComponent = mock(LocationProviderComponent::class.java).apply {
+        `when`(this.hasLocationPermission).thenReturn(true)
+        `when`(this.lastKnownLocation).thenReturn(lastLocationData)
     }
 
     @get:Rule
@@ -64,12 +72,10 @@ class WorkoutTrackerComponentTest : TestCase() {
         verify(timer, times(1)).start(anyLong(), anyNonNull())
     }
 
+
     @Test
     fun `stopWorkout() stops workout and does stop location service`() {
-        val location = mock(LocationProviderComponent::class.java)
-        `when`(location.hasLocationPermission).thenReturn(true)
-        `when`(location.lastKnownLocation).thenReturn(MutableLiveData())
-        val c = createComponent(location = location)
+        val c = createComponent()
 
         testCoroutineDispatcher.pauseDispatcher()
         c.start()
@@ -85,13 +91,13 @@ class WorkoutTrackerComponentTest : TestCase() {
 
         testCoroutineDispatcher.cleanupTestCoroutines()
 
-        verify(location, times(1)).start()
-        verify(location, times(1)).stop()
+        verify(locationProviderComponent, times(1)).start()
+        verify(locationProviderComponent, times(1)).stop()
     }
 
     @Test
     fun `cleanUp() gets called and forwards stop to other components`() {
-        val location = mock(LocationProviderComponent::class.java)
+        val location = locationProviderComponent
         val timer = mock(TimerCoroutineComponent::class.java)
         val c = createComponent(location = location, timer = timer)
 
@@ -104,11 +110,9 @@ class WorkoutTrackerComponentTest : TestCase() {
     @Test
     fun `tracker waits for permission being granted before requesting location updates`() {
         testCoroutineDispatcher.pauseDispatcher()
-        val location = mock(LocationProviderComponent::class.java)
-        val c = createComponent(location = location)
+        val c = createComponent()
 
-        `when`(location.lastKnownLocation).thenReturn(MutableLiveData())
-        `when`(location.hasLocationPermission).thenReturn(false)
+        `when`(locationProviderComponent.hasLocationPermission).thenReturn(false)
 
         c.start()
         assertTrue(c.workoutState.value is Started)
@@ -117,52 +121,93 @@ class WorkoutTrackerComponentTest : TestCase() {
             testCoroutineDispatcher.advanceTimeBy(2000L)
         }
 
-        assertTrue(c.workoutState.value is Started.WaitingForLocation)
-        assertTrue(c.workoutState.value is Started.WaitingForLocation.NoPermission)
+        assertTrue(c.workoutState.value is WaitingForLocation)
+        assertTrue(c.workoutState.value is WaitingForLocation.NoPermission)
 
-        `when`(location.hasLocationPermission).thenReturn(true)
+        `when`(locationProviderComponent.hasLocationPermission).thenReturn(true)
 
         testCoroutineDispatcher.advanceTimeBy(5000L)
 
-        assertTrue(c.workoutState.value is Started.WaitingForLocation.InitialWaiting)
+        assertTrue(c.workoutState.value is WaitingForLocation.InitialWaiting)
     }
 
     @Test
     fun `tracker changes status to active when got location`() {
         testCoroutineDispatcher.pauseDispatcher()
-        val location = mock(LocationProviderComponent::class.java)
-        val data = MutableLiveData<LocationSnapshot>()
         val snapshot = mock(LocationSnapshot::class.java)
-        val c = createComponent(location = location)
+        val c = createComponent()
 
-        `when`(location.hasLocationPermission).thenReturn(true)
-        `when`(location.lastKnownLocation).thenReturn(data)
         c.start()
 
         testCoroutineDispatcher.advanceTimeBy(3000L)
-        data.value = snapshot
+        lastLocationData.value = snapshot
         testCoroutineDispatcher.advanceTimeBy(1000L)
 
-        assertTrue(c.workoutState.value is Started.Active)
+        assertTrue(c.workoutState.value is Active)
     }
 
     @Test
     fun `tracker forwards location to stats component`() {
         testCoroutineDispatcher.pauseDispatcher()
-        val location = mock(LocationProviderComponent::class.java)
-        val data = MutableLiveData<LocationSnapshot>()
         val snapshot = mock(LocationSnapshot::class.java)
-        val c = createComponent(location = location)
-
-        `when`(location.hasLocationPermission).thenReturn(true)
-        `when`(location.lastKnownLocation).thenReturn(data)
+        val c = createComponent()
 
         c.start()
 
-        data.value = snapshot
+        lastLocationData.value = snapshot
         testCoroutineDispatcher.advanceTimeBy(2500L)
 
         verify(workoutStatsComponent, times(3)).update(anyNonNull(), anyNonNull(), anyLong())
+    }
+
+    @Test
+    fun `pauses when requested pause`() {
+        val c = createComponent()
+
+        assertIs(None, c.workoutState.value)
+
+        c.pauseWorkout() // should ignore, because workout still not started
+        assertIs(None, c.workoutState.value)
+
+        c.start()
+        assertIs(Started::class, c.workoutState.value)
+
+        c.pauseWorkout()
+        assertIs(RequestedPause::class, c.workoutState.value)
+
+        timeComponent.advanceTimeMillis(1500L)
+        testCoroutineDispatcher.advanceTimeBy(1500L)
+
+        assertIs(Paused::class, c.workoutState.value)
+        assertIs(Paused.ByUser, c.workoutState.value)
+    }
+
+    @Test
+    fun `pause prevents stats component from being updated`() {
+        val c = createComponent()
+
+        c.start()
+
+        lastLocationData.value = mock(LocationSnapshot::class.java)
+
+        timeComponent.advanceTimeMillis(1200L)
+        testCoroutineDispatcher.advanceTimeBy(1200L)
+
+        assertIs(Active::class, c.workoutState.value)
+        // check if it was called
+        verify(workoutStatsComponent, times(1))
+            .update(anyNonNull(), anyNonNull(), anyLong())
+
+        c.pauseWorkout()
+        lastLocationData.value = mock(LocationSnapshot::class.java)
+
+        timeComponent.advanceTimeMillis(1000L)
+        testCoroutineDispatcher.advanceTimeBy(1000L)
+
+        assertIs(Paused::class, c.workoutState.value)
+        // it should not have been called
+        verify(workoutStatsComponent, times(1))
+            .update(anyNonNull(), anyNonNull(), anyLong())
     }
 
 
@@ -170,7 +215,7 @@ class WorkoutTrackerComponentTest : TestCase() {
         timer: TimerCoroutineComponent = TimerCoroutineComponent(
             testCoroutineDispatcher
         ),
-        location: LocationProviderComponent = mock(LocationProviderComponent::class.java),
+        location: LocationProviderComponent = locationProviderComponent,
         stats: WorkoutStatsComponent = workoutStatsComponent
     ) = WorkoutTrackerComponent(
         timer = timer,

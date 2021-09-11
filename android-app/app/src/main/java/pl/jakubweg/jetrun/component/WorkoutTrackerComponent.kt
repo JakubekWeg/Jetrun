@@ -4,8 +4,8 @@ import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import pl.jakubweg.jetrun.component.WorkoutState.None
-import pl.jakubweg.jetrun.component.WorkoutState.Started.Active
-import pl.jakubweg.jetrun.component.WorkoutState.Started.RequestedStop
+import pl.jakubweg.jetrun.component.WorkoutState.Started
+import pl.jakubweg.jetrun.component.WorkoutState.Started.*
 import pl.jakubweg.jetrun.component.WorkoutState.Started.WaitingForLocation.InitialWaiting
 import pl.jakubweg.jetrun.component.WorkoutState.Started.WaitingForLocation.NoPermission
 import javax.inject.Inject
@@ -18,9 +18,14 @@ sealed class WorkoutState {
             object InitialWaiting : WaitingForLocation()
         }
 
+        sealed class Paused : Started() {
+            object ByUser : Paused()
+        }
+
         object Active : Started()
 
         object RequestedStop : Started()
+        object RequestedPause : Started()
     }
 }
 
@@ -52,6 +57,12 @@ class WorkoutTrackerComponent @Inject constructor(
         _workoutState.value = RequestedStop
     }
 
+    fun pauseWorkout() {
+        if (_workoutState.value is Started && _workoutState.value !is RequestedStop) {
+            _workoutState.value = RequestedPause
+        }
+    }
+
     private fun timerCallback() {
         when (val currentState = _workoutState.value) {
             NoPermission -> {
@@ -71,6 +82,10 @@ class WorkoutTrackerComponent @Inject constructor(
                 location.lastKnownLocation.value?.also {
                     sendLocationUpdateToStatsComponent(it)
                 }
+            }
+
+            RequestedPause -> {
+                _workoutState.value = Paused.ByUser
             }
 
             RequestedStop, None -> {
