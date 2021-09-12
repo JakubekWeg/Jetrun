@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package pl.jakubweg.jetrun
 
 import android.app.Application
@@ -21,8 +23,9 @@ class JetRunApplication : Application() {
 
     private fun setUpFirebaseEmulators() {
         GlobalScope.launch(Dispatchers.Default) {
-            Firebase.auth.useEmulator("10.0.0.3", 9099)
-            Firebase.firestore.useEmulator("10.0.0.3", 8080)
+            val emulatorHost = "10.0.0.2"
+            Firebase.auth.useEmulator(emulatorHost, 9099)
+            Firebase.firestore.useEmulator(emulatorHost, 8080)
         }
     }
 }
