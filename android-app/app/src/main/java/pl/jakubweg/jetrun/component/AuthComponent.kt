@@ -1,13 +1,15 @@
 package pl.jakubweg.jetrun.component
 
 import android.app.Activity
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import com.google.firebase.FirebaseException
-import com.google.firebase.auth.*
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.OAuthProvider
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.tasks.await
 import pl.jakubweg.jetrun.component.AuthState.*
-import pl.jakubweg.jetrun.util.nonMutable
 import javax.inject.Inject
 
 sealed class AuthState {
@@ -23,7 +25,7 @@ sealed class AuthState {
 }
 
 interface AuthComponent {
-    val authState: LiveData<AuthState>
+    val authState: StateFlow<AuthState>
     fun signOut()
     fun createSignInProvider(): OAuthProvider
     suspend fun signIn(activity: Activity, provider: OAuthProvider): Boolean
@@ -34,10 +36,9 @@ class FirebaseAuthComponent @Inject constructor(
     private val auth: FirebaseAuth
 ) : AuthComponent, FirebaseAuth.AuthStateListener {
 
-    private val _authState = MutableLiveData<AuthState>(Unknown)
+    private val _authState = MutableStateFlow<AuthState>(Unknown)
 
-    override val authState: LiveData<AuthState>
-        get() = _authState.nonMutable
+    override val authState = _authState.asStateFlow()
 
     init {
         auth.addAuthStateListener(this)
@@ -111,6 +112,6 @@ class FirebaseAuthComponent @Inject constructor(
     }
 
     private fun setState(new: AuthState) {
-        _authState.postValue(new)
+        _authState.value = new
     }
 }

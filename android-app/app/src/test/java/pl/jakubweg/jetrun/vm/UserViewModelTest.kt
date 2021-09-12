@@ -1,11 +1,10 @@
 package pl.jakubweg.jetrun.vm
 
 import android.app.Activity
-import androidx.lifecycle.MutableLiveData
 import junit.framework.TestCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runBlockingTest
 import kotlinx.coroutines.test.setMain
@@ -23,7 +22,7 @@ class UserViewModelTest : TestCase() {
     @Test
     fun `Gets status`() {
         val auth = mock(AuthComponent::class.java)
-        val state = MutableLiveData<AuthState>(NotSigned())
+        val state = MutableStateFlow<AuthState>(NotSigned())
         `when`(auth.authState).thenReturn(state)
 
         val vm = UserViewModel(auth)

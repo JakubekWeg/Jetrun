@@ -19,6 +19,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 import org.mockito.Mockito.*
 import pl.jakubweg.jetrun.component.AuthState.*
+import pl.jakubweg.jetrun.util.assertIs
 
 
 @ExperimentalCoroutinesApi
@@ -28,6 +29,7 @@ class FirebaseAuthComponentTest : TestCase() {
     @Rule
     @JvmField
     val rule: TestRule = InstantTaskExecutorRule()
+
     private var listener: FirebaseAuth.AuthStateListener? = null
     private lateinit var component: FirebaseAuthComponent
 
@@ -46,7 +48,7 @@ class FirebaseAuthComponentTest : TestCase() {
 
     @Test
     fun `Default state is unknown`() {
-        assert(component.authState.value is Unknown)
+        assertIs(Unknown::class, component.authState.value)
     }
 
     @Test
@@ -70,10 +72,10 @@ class FirebaseAuthComponentTest : TestCase() {
         `when`(result.user).thenReturn(user)
 
         listener?.onAuthStateChanged(firebaseAuth)
-        assertTrue(component.authState.value is NotSigned)
+        assertIs(NotSigned::class, component.authState.value)
 
         component.signIn(activity, provider)
-        assertTrue(component.authState.value is Signed)
+        assertIs(Signed::class, component.authState.value)
     }
 
     @Test
@@ -88,10 +90,10 @@ class FirebaseAuthComponentTest : TestCase() {
         `when`(task.result).thenReturn(null)
 
         listener?.onAuthStateChanged(firebaseAuth)
-        assertTrue(component.authState.value is NotSigned)
+        assertIs(NotSigned::class, component.authState.value)
 
         component.signIn(activity, provider)
-        assertTrue(component.authState.value is NotSigned)
+        assertIs(NotSigned::class, component.authState.value)
     }
 
     @Test
@@ -108,10 +110,10 @@ class FirebaseAuthComponentTest : TestCase() {
         `when`(result.user).thenReturn(null)
 
         listener?.onAuthStateChanged(firebaseAuth)
-        assertTrue(component.authState.value is NotSigned)
+        assertIs(NotSigned::class, component.authState.value)
 
         component.signIn(activity, provider)
-        assertTrue(component.authState.value is NotSigned)
+        assertIs(NotSigned::class, component.authState.value)
     }
 
 
@@ -127,11 +129,11 @@ class FirebaseAuthComponentTest : TestCase() {
         `when`(task.exception).thenReturn(FirebaseException("ERROR"))
 
         listener?.onAuthStateChanged(firebaseAuth)
-        assertTrue(component.authState.value is NotSigned)
+        assertIs(NotSigned::class, component.authState.value)
 
         component.signIn(activity, provider)
-        assertTrue(component.authState.value is NotSigned)
-        assertTrue(component.authState.value is NotSigned.FailedToAuthorize)
+        assertIs(NotSigned::class, component.authState.value)
+        assertIs(NotSigned.FailedToAuthorize::class, component.authState.value)
         assertEquals("ERROR", (component.authState.value as NotSigned.FailedToAuthorize).reason)
     }
 
@@ -148,11 +150,10 @@ class FirebaseAuthComponentTest : TestCase() {
         `when`(result.user).thenReturn(user)
 
         listener?.onAuthStateChanged(firebaseAuth)
-        assertTrue(component.authState.value is NotSigned)
+        assertIs(NotSigned::class, component.authState.value)
 
         component.signInAnonymously()
-        assertTrue(component.authState.value is Signed)
-        assertEquals("ERROR", (component.authState.value as NotSigned.FailedToAuthorize).reason)
+        assertIs(Signed::class, component.authState.value)
     }
 
     @Test(expected = Throwable::class)
@@ -170,8 +171,7 @@ class FirebaseAuthComponentTest : TestCase() {
 
         listener?.onAuthStateChanged(firebaseAuth)
         component.signInAnonymously()
-        assertTrue(component.authState.value is Signed)
-
+        assertIs(Signed::class, component.authState.value)
 
         component.signInAnonymously()
     }
