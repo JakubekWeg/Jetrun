@@ -16,6 +16,7 @@ sealed class WorkoutState {
         sealed class WaitingForLocation : Started() {
             object NoPermission : WaitingForLocation()
             object InitialWaiting : WaitingForLocation()
+            class AfterPauseWaiting(val lastKnownLocation: LocationSnapshot) : WaitingForLocation()
         }
 
         sealed class Paused : Started() {
@@ -26,6 +27,7 @@ sealed class WorkoutState {
 
         object RequestedStop : Started()
         object RequestedPause : Started()
+        object RequestedResume : Started()
     }
 }
 
@@ -63,6 +65,12 @@ class WorkoutTrackerComponent @Inject constructor(
         }
     }
 
+    fun resumeWorkout() {
+        if (_workoutState.value is Paused) {
+            _workoutState.value = RequestedResume
+        }
+    }
+
     private fun timerCallback() {
         when (val currentState = _workoutState.value) {
             NoPermission -> {
@@ -78,6 +86,15 @@ class WorkoutTrackerComponent @Inject constructor(
                     sendLocationUpdateToStatsComponent(location)
                 }
             }
+
+            is WaitingForLocation.AfterPauseWaiting -> {
+                val location = location.lastKnownLocation.value
+                if (location != null && location !== currentState.lastKnownLocation) {
+                    _workoutState.value = Active
+                    sendLocationUpdateToStatsComponent(location)
+                }
+            }
+
             Active -> {
                 location.lastKnownLocation.value?.also {
                     sendLocationUpdateToStatsComponent(it)
@@ -85,7 +102,17 @@ class WorkoutTrackerComponent @Inject constructor(
             }
 
             RequestedPause -> {
+                location.lastKnownLocation.value?.also {
+                    sendLocationUpdateToStatsComponent(it)
+                }
                 _workoutState.value = Paused.ByUser
+                stats.onPaused()
+            }
+
+            RequestedResume -> {
+                _workoutState.value = location.lastKnownLocation.value?.let {
+                    WaitingForLocation.AfterPauseWaiting(it)
+                } ?: InitialWaiting
             }
 
             RequestedStop, None -> {
@@ -97,7 +124,7 @@ class WorkoutTrackerComponent @Inject constructor(
     }
 
     private fun sendLocationUpdateToStatsComponent(location: LocationSnapshot) {
-        stats.update(location, _workoutState.value, time.currentTimeMillis())
+        stats.update(location, time.currentTimeMillis())
     }
 
     @VisibleForTesting

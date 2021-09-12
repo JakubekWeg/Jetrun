@@ -29,7 +29,6 @@ class WorkoutStatsComponent @Inject constructor(
 
     fun update(
         latestSnapshot: LocationSnapshot,
-        trackerState: WorkoutState,
         currentTimeMillis: Long
     ): SnapshotOfferResult {
         val last = lastLocationSnapshot
@@ -69,5 +68,11 @@ class WorkoutStatsComponent @Inject constructor(
         val speedKMH = (distanceForAverage / 1000.0) / (millisForAverage / 1000.0 / 60.0 / 60.0)
         distanceQueue.addLast(latest)
         return speedKMH
+    }
+
+    fun onPaused() {
+        _stats.value = _stats.value.copy(currentAverageSpeed = 0.0)
+        lastLocationSnapshot = null
+        lastTimestamp = 0L
     }
 }

@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.mock
-import pl.jakubweg.jetrun.component.WorkoutState.Started.Active
 import pl.jakubweg.jetrun.util.anyNonNull
 
 class WorkoutStatsComponentTest {
@@ -23,13 +22,13 @@ class WorkoutStatsComponentTest {
 
         assertEquals(0L, c.stats.value.totalMillis)
 
-        c.update(location, Active, 1000)
+        c.update(location, 1000)
         assertEquals(0L, c.stats.value.totalMillis)
 
-        c.update(location, Active, 2300)
+        c.update(location, 2300)
         assertEquals(1300L, c.stats.value.totalMillis)
 
-        c.update(location, Active, 4301)
+        c.update(location, 4301)
         assertEquals(3301, c.stats.value.totalMillis)
     }
 
@@ -41,17 +40,17 @@ class WorkoutStatsComponentTest {
 
         c.update(mock(LocationSnapshot::class.java).apply {
             `when`(distanceTo(anyNonNull())).thenReturn(1000.0)
-        }, Active, 1000)
+        }, 1000)
         assertEquals(0.0, c.stats.value.totalMeters, .0)
 
         c.update(mock(LocationSnapshot::class.java).apply {
             `when`(distanceTo(anyNonNull())).thenReturn(300.0)
-        }, Active, 2300)
+        }, 2300)
         assertEquals(1000.0, c.stats.value.totalMeters, .0)
 
         c.update(
             LocationSnapshot(0.0, 0.0),
-            Active, 4301
+            4301
         )
         assertEquals(1300.0, c.stats.value.totalMeters, 0.0)
     }
@@ -63,12 +62,12 @@ class WorkoutStatsComponentTest {
         kotlin.run {
             update(mock(LocationSnapshot::class.java).apply {
                 `when`(distanceTo(anyNonNull())).thenReturn(10.0)
-            }, Active, 1000)
+            }, 1000)
             assertEquals(0.0, stats.value.currentAverageSpeed, .0)
 
             update(mock(LocationSnapshot::class.java).apply {
                 `when`(distanceTo(anyNonNull())).thenReturn(7.0)
-            }, Active, 3500L)
+            }, 3500L)
 
             // km/h
             val speed = (10.0 / 1000.0) / (2500L / 1000.0 / 60.0 / 60.0)
@@ -79,7 +78,7 @@ class WorkoutStatsComponentTest {
         kotlin.run {
             update(mock(LocationSnapshot::class.java).apply {
                 `when`(distanceTo(anyNonNull())).thenThrow(IllegalStateException::class.java)
-            }, Active, 5500L)
+            }, 5500L)
 
             // km/h
             val speed = (17.0 / 1000.0) / (4500L / 1000.0 / 60.0 / 60.0)
@@ -94,12 +93,12 @@ class WorkoutStatsComponentTest {
 
             update(mock(LocationSnapshot::class.java).apply {
                 `when`(distanceTo(anyNonNull())).thenReturn(10.0)
-            }, Active, 0)
+            }, 0)
 
             for (i in 1..15) {
                 update(mock(LocationSnapshot::class.java).apply {
                     `when`(distanceTo(anyNonNull())).thenReturn(7.0)
-                }, Active, i * 1000L)
+                }, i * 1000L)
             }
 
             assertEquals(
@@ -112,7 +111,7 @@ class WorkoutStatsComponentTest {
             for (i in 1..5) {
                 update(mock(LocationSnapshot::class.java).apply {
                     `when`(distanceTo(anyNonNull())).thenReturn(6.0)
-                }, Active, (15 + i) * 1000L)
+                }, (15 + i) * 1000L)
             }
 
             assertEquals(
@@ -131,21 +130,75 @@ class WorkoutStatsComponentTest {
                 `when`(distanceTo(anyNonNull())).thenReturn(10.0)
             }
 
-            update(location, Active, 0)
+            update(location, 0)
 
             assertEquals(0.0, stats.value.totalMeters, .0)
             assertEquals(0, stats.value.totalMillis)
 
-            update(location, Active, 1234)
+            update(location, 1234)
 
             assertEquals(0.0, stats.value.totalMeters, .0)
             assertEquals(1234, stats.value.totalMillis)
 
             update(mock(LocationSnapshot::class.java).apply {
                 `when`(distanceTo(anyNonNull())).thenReturn(11.0)
-            }, Active, 2465)
+            }, 2465)
 
             assertEquals(10.0, stats.value.totalMeters, .0)
             assertEquals(2465, stats.value.totalMillis)
+        }
+
+    @Test
+    fun `onPaused() resets average speed to zero`() =
+        WorkoutStatsComponent().run {
+            update(mock(LocationSnapshot::class.java).apply {
+                `when`(distanceTo(anyNonNull())).thenReturn(10.0)
+            }, 0)
+
+            update(mock(LocationSnapshot::class.java).apply {
+                `when`(distanceTo(anyNonNull())).thenReturn(15.0)
+            }, 1234)
+
+            assertEquals(10.0, stats.value.totalMeters, .0)
+            assertEquals(1234, stats.value.totalMillis)
+            assertEquals(
+                (10.0 / 1000.0) / (1234.0 / 1000.0 / 60.0 / 60.0),
+                stats.value.currentAverageSpeed,
+                0.0
+            )
+
+            onPaused()
+
+            assertEquals(10.0, stats.value.totalMeters, .0)
+            assertEquals(1234, stats.value.totalMillis)
+            assertEquals(0.0, stats.value.currentAverageSpeed, 0.0)
+        }
+
+    @Test
+    fun `Paused workout doesn't add time`() =
+        WorkoutStatsComponent().run {
+            update(mock(LocationSnapshot::class.java), 0)
+            update(mock(LocationSnapshot::class.java).apply {
+                `when`(distanceTo(anyNonNull())).thenReturn(
+                    100.0
+                )
+            }, 1234)
+
+            assertEquals(1234, stats.value.totalMillis)
+
+            onPaused()
+
+            assertEquals(1234, stats.value.totalMillis)
+
+            update(mock(LocationSnapshot::class.java).apply {
+                `when`(distanceTo(anyNonNull())).thenReturn(
+                    50.0
+                )
+            }, 11_234)
+            assertEquals(1234, stats.value.totalMillis)
+
+            update(mock(LocationSnapshot::class.java), 12_235)
+            assertEquals(2235, stats.value.totalMillis)
+            assertEquals(50.0, stats.value.totalMeters, .0)
         }
 }
