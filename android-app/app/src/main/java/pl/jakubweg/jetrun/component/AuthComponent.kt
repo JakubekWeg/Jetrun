@@ -52,7 +52,7 @@ class FirebaseAuthComponent @Inject constructor(
     }
 
     override suspend fun signInAnonymously(): Boolean {
-        check(_authState.value is NotSigned)
+        check(_authState.value is NotSigned) { "User is already signed in!" }
         check(auth.currentUser == null)
 
         setState(Authorizing)

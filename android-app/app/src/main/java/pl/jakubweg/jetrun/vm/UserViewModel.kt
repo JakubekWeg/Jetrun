@@ -15,12 +15,21 @@ class UserViewModel @Inject constructor(
 ) : ViewModel() {
     private var works = false
 
-    fun signIn(activity: Activity) {
+    fun signInWithGithub(activity: Activity) {
         if (works) return
         works = true
         viewModelScope.launch {
-//            val provider = auth.createSignInProvider()
-//            auth.signIn(activity, provider)
+            val provider = auth.createSignInProvider()
+            auth.signIn(activity, provider)
+            works = false
+        }
+    }
+
+
+    fun signInAnonymously() {
+        if (works) return
+        works = true
+        viewModelScope.launch {
             auth.signInAnonymously()
             works = false
         }

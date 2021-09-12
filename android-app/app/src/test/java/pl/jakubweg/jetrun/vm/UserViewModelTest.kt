@@ -1,10 +1,12 @@
 package pl.jakubweg.jetrun.vm
 
 import android.app.Activity
+import com.google.firebase.auth.OAuthProvider
 import junit.framework.TestCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.TestCoroutineDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runBlockingTest
 import kotlinx.coroutines.test.setMain
@@ -15,10 +17,13 @@ import org.mockito.Mockito.*
 import pl.jakubweg.jetrun.component.AuthComponent
 import pl.jakubweg.jetrun.component.AuthState
 import pl.jakubweg.jetrun.component.AuthState.NotSigned
+import pl.jakubweg.jetrun.util.anyNonNull
 
 @RunWith(JUnit4::class)
 @ExperimentalCoroutinesApi
 class UserViewModelTest : TestCase() {
+    private val testDispatcher = TestCoroutineDispatcher()
+
     @Test
     fun `Gets status`() {
         val auth = mock(AuthComponent::class.java)
@@ -31,27 +36,52 @@ class UserViewModelTest : TestCase() {
     }
 
     @Test
-    fun `Sign in redirects single call to auth component`() = runBlockingTest {
-        Dispatchers.setMain(Dispatchers.Default)
-        val auth = mock(AuthComponent::class.java)
+    fun `Sign in as anon redirects single call to auth component`() =
+        testDispatcher.runBlockingTest {
+            Dispatchers.setMain(testDispatcher)
+            val auth = mock(AuthComponent::class.java)
 
-        val vm = UserViewModel(auth)
+            val vm = UserViewModel(auth)
 
-        val activity = mock(Activity::class.java)
+            `when`(auth.signInAnonymously()).thenReturn(true)
 
-//        `when`(auth.signIn(activity, any())).thenReturn(true)
-        `when`(auth.signInAnonymously()).thenReturn(true)
+            pauseDispatcher()
+            vm.signInAnonymously()
+            vm.signInAnonymously()
+            resumeDispatcher()
 
-        pauseDispatcher()
-        vm.signIn(activity)
-        vm.signIn(activity)
-        resumeDispatcher()
+            verify(auth, times(1)).signInAnonymously()
+            Dispatchers.resetMain()
+        }
 
-//        verify(auth, times(1)).signIn(activity, any())
-        verify(auth, times(1)).signInAnonymously()
 
-        Dispatchers.resetMain()
-    }
+    @Test
+    fun `Sign in with github redirects single call to auth component`() =
+        testDispatcher.runBlockingTest {
+            Dispatchers.setMain(testDispatcher)
+            val activity = mock(Activity::class.java)
+            val provider = mock(OAuthProvider::class.java)
+
+            val auth = mock(AuthComponent::class.java)
+            `when`(auth.createSignInProvider()).thenReturn(provider)
+
+            val vm = UserViewModel(auth)
+
+
+            `when`(auth.signIn(anyNonNull(), anyNonNull())).thenAnswer {
+                require(it.getArgument<Any?>(0) === activity)
+                require(it.getArgument<Any?>(1) === provider)
+                return@thenAnswer true
+            }
+
+            pauseDispatcher()
+            vm.signInWithGithub(activity)
+            vm.signInWithGithub(activity)
+            resumeDispatcher()
+
+            verify(auth, times(1)).signIn(anyNonNull(), anyNonNull())
+            Dispatchers.resetMain()
+        }
 
     @Test
     fun `Sign out redirects call to auth component`() {

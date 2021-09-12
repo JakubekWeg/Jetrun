@@ -4,29 +4,38 @@ import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.Button
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.max
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dagger.hilt.android.AndroidEntryPoint
 import pl.jakubweg.jetrun.component.AuthState
+import pl.jakubweg.jetrun.component.AuthState.NotSigned.FailedToAuthorize
 import pl.jakubweg.jetrun.ui.theme.JetRunTheme
 import pl.jakubweg.jetrun.vm.UserViewModel
 
-
+@ExperimentalAnimationApi
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,50 +44,117 @@ class MainActivity : ComponentActivity() {
         setContent {
             JetRunTheme {
                 Surface(color = MaterialTheme.colors.background) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            val vm: UserViewModel = viewModel()
-                            val state by vm.state.observeAsState()
+                    val vm: UserViewModel = viewModel()
+                    val state by vm.state.collectAsState()
+                    when (state) {
+                        is AuthState.Signed -> MainAppLayout()
+                        AuthState.Authorizing, is AuthState.NotSigned -> LoginLayout()
+                        AuthState.Unknown -> AppLoadingScreen()
+                    }
+                }
+            }
+        }
+    }
 
-                            when (state) {
-                                AuthState.Authorizing -> {
-                                    Text(
-                                        text = "Loading...\nPlease wait",
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                                is AuthState.NotSigned.FailedToAuthorize -> {
-                                    Text(
-                                        text = "Signing failed: " + (state as AuthState.NotSigned.FailedToAuthorize).reason,
-                                        textAlign = TextAlign.Center,
-                                        color = MaterialTheme.colors.error,
-                                        modifier = Modifier.widthIn(max = 200.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    SignInButton(vm)
-                                }
-                                is AuthState.NotSigned -> {
-                                    Text(text = "You are not signed in!")
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    SignInButton(vm)
-                                }
-                                is AuthState.Signed -> {
-                                    Text(
-                                        text = "AWESOME!\nHello ${(state as AuthState.Signed).user.displayName}",
-                                        textAlign = TextAlign.Center
-                                    )
 
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Button(onClick = { vm.signOut() }) {
-                                        Text(text = "SIGN OUT", fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                                else -> Text(text = "??")
-                            }
-                        }
+}
+
+@ExperimentalAnimationApi
+@Composable
+private fun AppLoadingScreen() {
+    AnimatedVisibility(visible = true) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            val rememberInfiniteTransition = rememberInfiniteTransition()
+
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colors.primary.copy(alpha = .4f)),
+                contentAlignment = Alignment.Center
+            ) {
+                val rotation by rememberInfiniteTransition.animateFloat(
+                    0f, 360f, infiniteRepeatable(
+                        animation = tween(2_000, easing = LinearEasing),
+                    )
+                )
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = null,
+                    tint = MaterialTheme.colors.onPrimary,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .rotate(rotation)
+                )
+            }
+        }
+    }
+}
+
+
+@ExperimentalAnimationApi
+@Composable
+private fun LoginLayout() {
+    AnimatedVisibility(visible = true) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(.8f)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .scrollable(rememberScrollState(), Orientation.Vertical),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    val vm: UserViewModel = viewModel()
+                    val activity: Activity = LocalContext.current as Activity
+
+                    Text(
+                        text = "Welcome in JetRunner",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Sign in to continue",
+                        textAlign = TextAlign.Center,
+                        fontSize = 14.sp
+                    )
+
+                    val state by vm.state.collectAsState()
+                    if (state is FailedToAuthorize) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Failed to proceed:\n${(state as FailedToAuthorize).reason}",
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colors.error
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    } else {
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+
+
+                    Button(onClick = {
+                        vm.signInWithGithub(activity)
+                    }) {
+                        Text("Continue via GitHub")
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(onClick = {
+                        vm.signInAnonymously()
+                    }) {
+                        Text("Continue anonymously")
                     }
                 }
             }
@@ -86,10 +162,17 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
 @Composable
-private fun SignInButton(vm: UserViewModel) {
-    val activity: Activity = LocalContext.current as Activity
-    Button(onClick = { vm.signIn(activity) }) {
-        Text(text = "SIGN IN", fontWeight = FontWeight.Bold)
+private fun MainAppLayout() {
+    val vm: UserViewModel = viewModel()
+    Text(
+        text = "AWESOME!",
+        textAlign = TextAlign.Center
+    )
+
+    Spacer(modifier = Modifier.height(16.dp))
+    Button(onClick = { vm.signOut() }) {
+        Text(text = "SIGN OUT", fontWeight = FontWeight.Bold)
     }
 }
