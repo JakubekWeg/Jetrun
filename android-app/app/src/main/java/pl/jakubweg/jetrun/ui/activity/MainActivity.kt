@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
@@ -19,10 +20,12 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -121,27 +124,25 @@ private fun LoginLayout() {
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = "Sign in to continue",
-                        textAlign = TextAlign.Center,
-                        fontSize = 14.sp
-                    )
-
                     val state by vm.state.collectAsState()
-                    if (state is FailedToAuthorize) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Failed to proceed:\n${(state as FailedToAuthorize).reason}",
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colors.error
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    } else {
-                        Spacer(modifier = Modifier.height(24.dp))
+                    val errorMessage = remember(state) {
+                        (state as? FailedToAuthorize)?.run { "Failed to proceed:\n${reason}" }
+                            ?: if (state === AuthState.Authorizing) "Signing in progress" else "Sign in to continue"
+                    }
+                    val errorColor = MaterialTheme.colors.error
+                    val currentStatusColor = remember(state) {
+                        if (state is FailedToAuthorize) errorColor
+                        else Color.Unspecified
                     }
 
+                    Text(
+                        modifier = Modifier.fillMaxWidth().animateContentSize().padding(4.dp),
+                        text = errorMessage,
+                        textAlign = TextAlign.Center,
+                        color = currentStatusColor,
+                        fontSize = 12.sp,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     Button(onClick = {
                         vm.signInWithGithub(activity)
