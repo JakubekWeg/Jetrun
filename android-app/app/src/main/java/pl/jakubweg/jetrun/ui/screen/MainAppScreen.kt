@@ -54,6 +54,8 @@ fun MainAppScreen(
                         label = { Text(text = screen.title) },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
+                            if (navController.currentDestination?.route == screen.route)
+                                return@BottomNavigationItem
                             navController.navigate(screen.route) {
                                 popUpTo(navController.graph.findStartDestination().id) {
                                     saveState = true
@@ -90,9 +92,16 @@ fun MainAppScreen(
             }
 
             composable(BottomNavigationLocation.RecordWorkout.route) {
-                Text(text = "oh you are running... nice")
+                RecordWorkoutScreen()
             }
         }
     }
 
 }
+
+@Composable
+private fun RecordWorkoutScreen() {
+    ComposableMapView()
+}
+
+
