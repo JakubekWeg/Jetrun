@@ -1,6 +1,7 @@
 package pl.jakubweg.jetrun.ui.screen
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
@@ -101,7 +102,7 @@ fun MainAppScreen(
 
 @Composable
 private fun RecordWorkoutScreen() {
-    ComposableMapView()
+    ComposableMapView(modifier = Modifier.fillMaxSize())
 }
 
 
