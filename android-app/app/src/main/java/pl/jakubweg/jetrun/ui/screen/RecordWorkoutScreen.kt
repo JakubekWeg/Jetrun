@@ -1,5 +1,6 @@
 package pl.jakubweg.jetrun.ui.screen
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateContentSize
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,80 +29,127 @@ import kotlinx.coroutines.launch
 @ExperimentalAnimationApi
 @Composable
 fun RecordWorkoutScreen() {
-//    val configuration = LocalConfiguration.current
-//    Text("Hello world")
-//    if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
-//        ComposableMapView(modifier = Modifier.fillMaxSize())
-//    else
+    val configuration = LocalConfiguration.current
 
+    if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+        LandscapeLayout()
+    else
+        VerticalLayout()
+}
+
+@ExperimentalAnimationApi
+@Composable
+fun LandscapeLayout() {
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        horizontalArrangement = Arrangement.End
+    ) {
+        InformationSection(modifier = Modifier.fillMaxHeight().weight(20f), isLandscape = true)
+
+        MapSection(
+            modifier = Modifier
+                .fillMaxHeight()
+                .weight(weight = 50f)
+        )
+    }
+}
+
+
+@ExperimentalAnimationApi
+@Composable
+private fun VerticalLayout() {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Bottom
     ) {
-
-        Box(
+        MapSection(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(weight = 1f),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            Column {
-                var mapIsVisible by remember { mutableStateOf(false) }
+                .weight(weight = 1f)
+        )
 
-                rememberCoroutineScope().launch {
-                    delay(250L)
-                    mapIsVisible = true
-                }
-                AnimatedVisibility(
-                    visible = mapIsVisible,
-                    enter = fadeIn(0f)
-                ) {
-                    ComposableMapView(modifier = Modifier.fillMaxSize())
-                }
+        InformationSection(modifier = Modifier.fillMaxWidth(), isLandscape = false)
+    }
+}
+
+@ExperimentalAnimationApi
+@Composable
+private fun MapSection(modifier: Modifier) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column {
+            var mapIsVisible by remember { mutableStateOf(false) }
+
+            rememberCoroutineScope().launch {
+                delay(250L)
+                mapIsVisible = true
             }
-
-            MissingGPSIndicator()
-
-            WorkoutPausedIndicator(modifier = Modifier.align(Alignment.BottomEnd))
+            AnimatedVisibility(
+                visible = mapIsVisible,
+                enter = fadeIn(0f)
+            ) {
+                ComposableMapView(modifier = Modifier.fillMaxSize())
+            }
         }
 
-        InformationSection()
+        MissingGPSIndicator()
+
+        WorkoutPausedIndicator(modifier = Modifier.align(Alignment.BottomEnd))
     }
 }
 
 @Composable
-private fun InformationSection() {
-    Surface(elevation = 20.dp) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(),
-        ) {
-            Box {
-                WorkoutTypeSelector()
-            }
+private fun InformationSection(modifier: Modifier, isLandscape: Boolean) {
+    Surface(
+        elevation = 20.dp,
+        modifier = modifier
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            WorkoutTypeSelector()
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
+            if (isLandscape) {
+                Column(
+                    verticalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.fillMaxHeight()
+                ) {
+                    PrimaryMeter(
+                        modifier = Modifier,
+                        value = "5.8km",
+                        name = "Total distance"
+                    )
 
-                PrimaryMeter(
-                    modifier = Modifier.weight(1f),
-                    value = "5.7km",
-                    name = "Total distance"
-                )
-
-                Column(modifier = Modifier.padding(8.dp)) {
                     FloatingActionButton(onClick = {}) {
                         Icon(imageVector = Icons.Default.Pause, contentDescription = null)
                     }
-                }
 
-                PrimaryMeter(
-                    modifier = Modifier.weight(1f),
-                    value = "6:14",
-                    name = "Total time"
-                )
+                    PrimaryMeter(
+                        modifier = Modifier,
+                        value = "5:14",
+                        name = "Total time"
+                    )
+                }
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    PrimaryMeter(
+                        modifier = Modifier.weight(1f),
+                        value = "5.7km",
+                        name = "Total distance"
+                    )
+
+                    FloatingActionButton(onClick = {}, modifier = Modifier.padding(8.dp)) {
+                        Icon(imageVector = Icons.Default.Pause, contentDescription = null)
+                    }
+
+                    PrimaryMeter(
+                        modifier = Modifier.weight(1f),
+                        value = "6:14",
+                        name = "Total time"
+                    )
+                }
             }
         }
     }
@@ -142,7 +191,7 @@ private fun WorkoutTypeSelector() {
             modifier = Modifier.animateContentSize(),
             text = "Riding a bike",
             fontWeight = FontWeight.Bold,
-            maxLines = 1
+            maxLines = 2
         )
     }
 }
