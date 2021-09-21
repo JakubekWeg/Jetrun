@@ -10,11 +10,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DirectionsBike
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.GpsNotFixed
-import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,31 +23,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import pl.jakubweg.jetrun.component.WorkoutState.None
+import pl.jakubweg.jetrun.component.WorkoutState.Started.*
+import pl.jakubweg.jetrun.ui.model.CurrentWorkoutViewModel
 
 @ExperimentalAnimationApi
 @Composable
-fun RecordWorkoutScreen() {
+fun RecordWorkoutScreen(vm: CurrentWorkoutViewModel) {
     val configuration = LocalConfiguration.current
 
     if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
-        LandscapeLayout()
+        LandscapeLayout(vm)
     else
-        VerticalLayout()
+        VerticalLayout(vm)
 }
 
 @ExperimentalAnimationApi
 @Composable
-fun LandscapeLayout() {
+fun LandscapeLayout(vm: CurrentWorkoutViewModel) {
     Row(
         modifier = Modifier.fillMaxSize(),
         horizontalArrangement = Arrangement.End
     ) {
-        InformationSection(modifier = Modifier.fillMaxHeight().weight(20f), isLandscape = true)
+        InformationSection(
+            modifier = Modifier.fillMaxHeight().weight(20f),
+            isLandscape = true,
+            vm = vm
+        )
 
         MapSection(
             modifier = Modifier
                 .fillMaxHeight()
-                .weight(weight = 50f)
+                .weight(weight = 50f),
+            vm = vm
         )
     }
 }
@@ -57,7 +63,7 @@ fun LandscapeLayout() {
 
 @ExperimentalAnimationApi
 @Composable
-private fun VerticalLayout() {
+private fun VerticalLayout(vm: CurrentWorkoutViewModel) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Bottom
@@ -65,22 +71,27 @@ private fun VerticalLayout() {
         MapSection(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(weight = 1f)
+                .weight(weight = 1f),
+            vm = vm
         )
 
-        InformationSection(modifier = Modifier.fillMaxWidth(), isLandscape = false)
+        InformationSection(
+            modifier = Modifier.fillMaxWidth(),
+            isLandscape = false,
+            vm = vm
+        )
     }
 }
 
 @ExperimentalAnimationApi
 @Composable
-private fun MapSection(modifier: Modifier) {
+private fun MapSection(modifier: Modifier, vm: CurrentWorkoutViewModel) {
     Box(
         modifier = modifier,
         contentAlignment = Alignment.TopCenter
     ) {
         Column {
-            var mapIsVisible by remember { mutableStateOf(false) }
+            var mapIsVisible by rememberSaveable { mutableStateOf(false) }
 
             rememberCoroutineScope().launch {
                 delay(250L)
@@ -96,17 +107,24 @@ private fun MapSection(modifier: Modifier) {
 
         MissingGPSIndicator()
 
-        WorkoutPausedIndicator(modifier = Modifier.align(Alignment.BottomEnd))
+        WorkoutPausedIndicator(modifier = Modifier.align(Alignment.BottomEnd), vm = vm)
     }
 }
 
 @Composable
-private fun InformationSection(modifier: Modifier, isLandscape: Boolean) {
+private fun InformationSection(
+    modifier: Modifier,
+    isLandscape: Boolean,
+    vm: CurrentWorkoutViewModel
+) {
     Surface(
         elevation = 20.dp,
         modifier = modifier
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.padding(4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             WorkoutTypeSelector()
 
             if (isLandscape) {
@@ -120,9 +138,7 @@ private fun InformationSection(modifier: Modifier, isLandscape: Boolean) {
                         name = "Total distance"
                     )
 
-                    FloatingActionButton(onClick = {}) {
-                        Icon(imageVector = Icons.Default.Pause, contentDescription = null)
-                    }
+                    StartPauseResumeButton(vm = vm)
 
                     PrimaryMeter(
                         modifier = Modifier,
@@ -140,9 +156,7 @@ private fun InformationSection(modifier: Modifier, isLandscape: Boolean) {
                         name = "Total distance"
                     )
 
-                    FloatingActionButton(onClick = {}, modifier = Modifier.padding(8.dp)) {
-                        Icon(imageVector = Icons.Default.Pause, contentDescription = null)
-                    }
+                    StartPauseResumeButton(vm = vm)
 
                     PrimaryMeter(
                         modifier = Modifier.weight(1f),
@@ -152,6 +166,29 @@ private fun InformationSection(modifier: Modifier, isLandscape: Boolean) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StartPauseResumeButton(vm: CurrentWorkoutViewModel) {
+    FloatingActionButton(
+        onClick = vm::onResumeOrPauseClicked,
+        modifier = Modifier.padding(8.dp)
+    ) {
+        val state by vm.currentWorkoutStatus.collectAsState()
+        val shouldShowNotStartedIcon =
+            remember(state) { state === None || state === RequestedPause || state === RequestedStop || state is Paused }
+
+        if (shouldShowNotStartedIcon)
+            Icon(
+                imageVector = Icons.Default.PlayArrow,
+                contentDescription = "Start working out"
+            )
+        else
+            Icon(
+                imageVector = Icons.Default.Pause,
+                contentDescription = "Pause workout"
+            )
     }
 }
 
@@ -225,14 +262,10 @@ private fun MissingGPSIndicator() {
 
 @ExperimentalAnimationApi
 @Composable
-private fun WorkoutPausedIndicator(modifier: Modifier) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect("") {
-        repeat(1000) {
-            delay(2500L)
-            visible = !visible
-        }
-    }
+private fun WorkoutPausedIndicator(modifier: Modifier, vm: CurrentWorkoutViewModel) {
+    val state by vm.currentWorkoutStatus.collectAsState()
+    val visible =
+        remember(state) { state is Paused }
 
     AnimatedVisibility(
         visible = visible,
@@ -241,7 +274,8 @@ private fun WorkoutPausedIndicator(modifier: Modifier) {
         val tint = MaterialTheme.colors.onPrimary
         Button(
             modifier = Modifier.padding(12.dp),
-            onClick = {}) {
+            onClick = vm::onFinishWorkoutClicked
+        ) {
             Icon(
                 modifier = Modifier.size(20.dp),
                 imageVector = Icons.Default.Done,

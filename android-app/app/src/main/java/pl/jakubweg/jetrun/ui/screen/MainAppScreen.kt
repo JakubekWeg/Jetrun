@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -17,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import pl.jakubweg.jetrun.component.AuthState
+import pl.jakubweg.jetrun.ui.model.CurrentWorkoutViewModel
 import pl.jakubweg.jetrun.vm.UserViewModel
 
 sealed class BottomNavigationLocation(
@@ -69,6 +71,8 @@ fun MainAppScreen(
             }
         }
     ) { innerPadding ->
+        val vm: CurrentWorkoutViewModel = viewModel()
+
         NavHost(
             modifier = Modifier.padding(innerPadding),
             navController = navController,
@@ -92,7 +96,7 @@ fun MainAppScreen(
             }
 
             composable(BottomNavigationLocation.RecordWorkout.route) {
-                RecordWorkoutScreen()
+                RecordWorkoutScreen(vm)
             }
         }
     }
