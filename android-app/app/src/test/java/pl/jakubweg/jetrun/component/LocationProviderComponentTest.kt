@@ -147,5 +147,59 @@ class LocationProviderComponentTest : TestCase() {
         assertEquals(3.0, value.altitude)
         assertEquals(4, value.timestamp)
     }
+
+
+    @Test
+    fun `Publishes location after stop and then start again`() {
+        val location = mock(Location::class.java)
+        `when`(location.latitude).thenReturn(1.0)
+
+        val context = mock(Context::class.java)
+        `when`(context.checkSelfPermission(anyString())).thenReturn(PERMISSION_GRANTED)
+
+        val locationManager = mock(LocationManager::class.java)
+        val listener = AtomicReference<LocationListener?>(null)
+        `when`(
+            locationManager.requestLocationUpdates(
+                anyString(),
+                anyLong(),
+                anyFloat(),
+                anyNonNull() as LocationListener
+            )
+        ).then {
+            listener.set(it.getArgument<LocationListener>(3))
+        }
+
+        val testDispatcher = TestCoroutineDispatcher()
+        testDispatcher.pauseDispatcher()
+
+        val c = LocationProviderComponent(
+            context = context,
+            locationManager = locationManager,
+            defaultDispatcher = testDispatcher
+        )
+
+        assertNull(c.lastKnownLocation.value)
+        c.start()
+        listener.get()!!.onLocationChanged(location)
+        assertNull(c.lastKnownLocation.value)
+        testDispatcher.resumeDispatcher()
+        testDispatcher.runBlockingTest { }
+
+        assertEquals(1.0, c.lastKnownLocation.value?.latitude ?: 0.0, 0.0)
+
+        c.stop()
+        testDispatcher.resumeDispatcher()
+        testDispatcher.pauseDispatcher()
+
+        c.start()
+        val newLocation = mock(Location::class.java)
+        `when`(newLocation.latitude).thenReturn(2.0)
+        listener.get()!!.onLocationChanged(newLocation)
+        testDispatcher.resumeDispatcher()
+
+        `when`(location.latitude).thenReturn(2.0)
+        assertEquals(2.0, c.lastKnownLocation.value?.latitude ?: 0.0, 0.0)
+    }
 }
 

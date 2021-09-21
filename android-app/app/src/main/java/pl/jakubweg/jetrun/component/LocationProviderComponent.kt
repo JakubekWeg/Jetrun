@@ -14,7 +14,6 @@ import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.MutableLiveData
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import pl.jakubweg.jetrun.util.nonMutable
 import javax.inject.Inject
@@ -76,7 +75,6 @@ class LocationProviderComponent @Inject constructor(
 
     fun stop() {
         locationManager.removeUpdates(this)
-        scope.cancel()
     }
 
     @MainThread
