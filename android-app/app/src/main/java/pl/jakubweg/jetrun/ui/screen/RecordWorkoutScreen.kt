@@ -1,11 +1,14 @@
 package pl.jakubweg.jetrun.ui.screen
 
+import android.Manifest
+import android.app.Activity
 import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
@@ -18,13 +21,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pl.jakubweg.jetrun.component.WorkoutState.None
 import pl.jakubweg.jetrun.component.WorkoutState.Started.*
+import pl.jakubweg.jetrun.component.WorkoutState.Started.WaitingForLocation.NoPermission
 import pl.jakubweg.jetrun.ui.model.CurrentWorkoutViewModel
 
 @ExperimentalAnimationApi
@@ -105,7 +111,7 @@ private fun MapSection(modifier: Modifier, vm: CurrentWorkoutViewModel) {
             }
         }
 
-        MissingGPSIndicator()
+        MissingGPSIndicator(vm = vm)
 
         WorkoutPausedIndicator(modifier = Modifier.align(Alignment.BottomEnd), vm = vm)
     }
@@ -233,31 +239,53 @@ private fun WorkoutTypeSelector() {
     }
 }
 
+@ExperimentalAnimationApi
 @Composable
-private fun MissingGPSIndicator() {
-    val shape = RoundedCornerShape(100)
-    Row(
-        modifier = Modifier
-            .padding(20.dp)
-            .shadow(elevation = 8.dp, shape = shape)
-            .clip(shape)
-            .background(MaterialTheme.colors.error)
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val tint = MaterialTheme.colors.onError
-        Icon(
-            modifier = Modifier.size(20.dp),
-            imageVector = Icons.Default.GpsNotFixed,
-            contentDescription = null,
-            tint = tint
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = "Getting GPS signal",
-            color = tint
-        )
+private fun MissingGPSIndicator(vm: CurrentWorkoutViewModel) {
+    val state by vm.currentWorkoutStatus.collectAsState()
+    val isVisible = remember(state) { state is WaitingForLocation }
+    val isMissingPermission = remember(state) { state === NoPermission }
+
+    AnimatedVisibility(visible = isVisible) {
+        val shape = RoundedCornerShape(100)
+        val context = LocalContext.current as? Activity?
+        Row(
+            modifier = Modifier
+                .clickable(enabled = isMissingPermission, onClick = {
+                    requestLocationPermission(context ?: return@clickable)
+                })
+                .animateContentSize()
+                .padding(20.dp)
+                .shadow(elevation = 8.dp, shape = shape)
+                .clip(shape)
+                .background(MaterialTheme.colors.error)
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val tint = MaterialTheme.colors.onError
+            Icon(
+                modifier = Modifier.size(20.dp),
+                imageVector = if (isMissingPermission) Icons.Default.GpsOff else Icons.Default.GpsNotFixed,
+                contentDescription = null,
+                tint = tint
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = if (isMissingPermission) "I need location permission\nTap to grant it" else "Getting GPS signal",
+                color = tint,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
+}
+
+private fun requestLocationPermission(context: Activity) {
+    context.requestPermissions(
+        arrayOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ), 0
+    )
 }
 
 @ExperimentalAnimationApi

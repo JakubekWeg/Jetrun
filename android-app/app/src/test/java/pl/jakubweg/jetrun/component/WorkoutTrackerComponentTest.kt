@@ -14,6 +14,7 @@ import pl.jakubweg.jetrun.component.WorkoutState.None
 import pl.jakubweg.jetrun.component.WorkoutState.Started
 import pl.jakubweg.jetrun.component.WorkoutState.Started.*
 import pl.jakubweg.jetrun.component.WorkoutState.Started.WaitingForLocation.InitialWaiting
+import pl.jakubweg.jetrun.component.WorkoutState.Started.WaitingForLocation.NoPermission
 import pl.jakubweg.jetrun.util.anyNonNull
 import pl.jakubweg.jetrun.util.assertIs
 
@@ -122,7 +123,7 @@ class WorkoutTrackerComponentTest : TestCase() {
         }
 
         assertTrue(c.workoutState.value is WaitingForLocation)
-        assertTrue(c.workoutState.value is WaitingForLocation.NoPermission)
+        assertTrue(c.workoutState.value is NoPermission)
 
         `when`(locationProviderComponent.hasLocationPermission).thenReturn(true)
 
@@ -268,6 +269,30 @@ class WorkoutTrackerComponentTest : TestCase() {
         assertIs(Active::class, c.workoutState.value)
         verify(workoutStatsComponent, times(3))
             .update(anyNonNull(), anyLong())
+    }
+
+
+    @Test
+    fun `resume() waits for sets status to NoPermission is permission is still missing`() {
+        `when`(locationProviderComponent.hasLocationPermission).thenReturn(false)
+        val c = createComponent()
+
+        c.start()
+        assertIs(NoPermission::class, c.workoutState.value)
+
+        c.pauseWorkout()
+        timeComponent.advanceTimeMillis(1000L)
+        testCoroutineDispatcher.advanceTimeBy(1000L)
+
+        assertIs(Paused::class, c.workoutState.value)
+
+        c.resumeWorkout()
+        assertIs(RequestedResume::class, c.workoutState.value)
+        timeComponent.advanceTimeMillis(1000L)
+        testCoroutineDispatcher.advanceTimeBy(1000L)
+
+        assertIs(WaitingForLocation::class, c.workoutState.value)
+        assertIs(NoPermission::class, c.workoutState.value)
     }
 
 

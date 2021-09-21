@@ -1,8 +1,10 @@
 package pl.jakubweg.jetrun.component
 
 import androidx.annotation.VisibleForTesting
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import pl.jakubweg.jetrun.component.WorkoutState.None
 import pl.jakubweg.jetrun.component.WorkoutState.Started
 import pl.jakubweg.jetrun.component.WorkoutState.Started.*
@@ -71,11 +73,11 @@ class WorkoutTrackerComponent @Inject constructor(
         }
     }
 
-    private fun timerCallback() {
+    private suspend fun timerCallback() {
         when (val currentState = _workoutState.value) {
             NoPermission -> {
                 if (location.hasLocationPermission) {
-                    location.start()
+                    withContext(Dispatchers.Main) { location.start() }
                     _workoutState.value = InitialWaiting
                 }
             }
@@ -110,9 +112,14 @@ class WorkoutTrackerComponent @Inject constructor(
             }
 
             RequestedResume -> {
-                _workoutState.value = location.lastKnownLocation.value?.let {
-                    WaitingForLocation.AfterPauseWaiting(it)
-                } ?: InitialWaiting
+                if (location.hasLocationPermission) {
+                    withContext(Dispatchers.Main) { location.start() }
+
+                    _workoutState.value = location.lastKnownLocation.value?.let {
+                        WaitingForLocation.AfterPauseWaiting(it)
+                    } ?: InitialWaiting
+                } else
+                    _workoutState.value = NoPermission
             }
 
             RequestedStop, None -> {

@@ -11,7 +11,7 @@ import javax.inject.Inject
 class CurrentWorkoutViewModel @Inject constructor(
     private val tracker: WorkoutTrackerComponent
 ) : ViewModel() {
-    val currentWorkoutStatus: StateFlow<WorkoutState> get() = tracker.workoutState
+    val currentWorkoutStatus: StateFlow<WorkoutState> = tracker.workoutState
 
     fun onFinishWorkoutClicked() {
         tracker.stopWorkout()

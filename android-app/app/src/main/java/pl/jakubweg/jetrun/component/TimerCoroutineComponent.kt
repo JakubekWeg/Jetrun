@@ -11,7 +11,7 @@ class TimerCoroutineComponent @Inject constructor(
     private val started = AtomicBoolean()
     private var job: Job? = null
 
-    fun start(delayMillis: Long, callback: () -> Unit) {
+    fun start(delayMillis: Long, callback: suspend () -> Unit) {
         val changedStatus = started.compareAndSet(false, true)
         check(changedStatus) { "Timer was already started" }
 
