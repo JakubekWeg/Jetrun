@@ -8,6 +8,7 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.location.LocationManager.GPS_PROVIDER
+import android.os.Bundle
 import androidx.annotation.MainThread
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.MutableLiveData
@@ -84,4 +85,8 @@ class LocationProviderComponent @Inject constructor(
             _lastKnownLocation.postValue(location.asSnapshot)
         }
     }
+
+    override fun onStatusChanged(provider: String, status: Int, extra: Bundle) = Unit
+    override fun onProviderEnabled(provider: String) = Unit
+    override fun onProviderDisabled(provider: String) = Unit
 }

@@ -138,5 +138,6 @@ class WorkoutTrackerComponent @Inject constructor(
     fun cleanUp() {
         timer.stop()
         location.stop()
+        stats.resetStats()
     }
 }

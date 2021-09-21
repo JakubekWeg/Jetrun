@@ -3,8 +3,11 @@ package pl.jakubweg.jetrun.component
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.lifecycle.MutableLiveData
 import junit.framework.TestCase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestCoroutineDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -73,7 +76,6 @@ class WorkoutTrackerComponentTest : TestCase() {
         verify(timer, times(1)).start(anyLong(), anyNonNull())
     }
 
-
     @Test
     fun `stopWorkout() stops workout and does stop location service`() {
         val c = createComponent()
@@ -106,10 +108,12 @@ class WorkoutTrackerComponentTest : TestCase() {
 
         verify(location, times(1)).stop()
         verify(timer, times(1)).stop()
+        verify(workoutStatsComponent, times(1)).resetStats()
     }
 
     @Test
     fun `tracker waits for permission being granted before requesting location updates`() {
+        Dispatchers.setMain(testCoroutineDispatcher)
         testCoroutineDispatcher.pauseDispatcher()
         val c = createComponent()
 
@@ -129,7 +133,9 @@ class WorkoutTrackerComponentTest : TestCase() {
 
         testCoroutineDispatcher.advanceTimeBy(5000L)
 
-        assertTrue(c.workoutState.value is InitialWaiting)
+        assertIs(InitialWaiting, c.workoutState.value)
+
+        Dispatchers.resetMain()
     }
 
     @Test
@@ -228,6 +234,7 @@ class WorkoutTrackerComponentTest : TestCase() {
 
     @Test
     fun `resume() waits for new location and then makes workout active again`() {
+        Dispatchers.setMain(testCoroutineDispatcher)
         val c = createComponent()
 
         c.start()
@@ -269,8 +276,8 @@ class WorkoutTrackerComponentTest : TestCase() {
         assertIs(Active::class, c.workoutState.value)
         verify(workoutStatsComponent, times(3))
             .update(anyNonNull(), anyLong())
+        Dispatchers.resetMain()
     }
-
 
     @Test
     fun `resume() waits for sets status to NoPermission is permission is still missing`() {

@@ -136,43 +136,44 @@ private fun InformationSection(
             if (isLandscape) {
                 Column(
                     verticalArrangement = Arrangement.SpaceEvenly,
-                    modifier = Modifier.fillMaxHeight()
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxHeight(),
                 ) {
-                    PrimaryMeter(
-                        modifier = Modifier,
-                        value = "5.8km",
-                        name = "Total distance"
-                    )
-
-                    StartPauseResumeButton(vm = vm)
-
-                    PrimaryMeter(
-                        modifier = Modifier,
-                        value = "5:14",
-                        name = "Total time"
-                    )
+                    MetersSection(Modifier, vm)
                 }
             } else {
                 Row(
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    PrimaryMeter(
-                        modifier = Modifier.weight(1f),
-                        value = "5.7km",
-                        name = "Total distance"
-                    )
-
-                    StartPauseResumeButton(vm = vm)
-
-                    PrimaryMeter(
-                        modifier = Modifier.weight(1f),
-                        value = "6:14",
-                        name = "Total time"
-                    )
+                    MetersSection(Modifier.weight(1f), vm)
                 }
             }
         }
     }
+}
+
+@Composable
+private fun MetersSection(
+    modifier: Modifier,
+    vm: CurrentWorkoutViewModel
+) {
+    val stats by vm.currentWorkoutStats.collectAsState()
+    val formattedDistance =
+        remember(stats.totalMeters) { String.format("%.2fm", stats.totalMeters) }
+    PrimaryMeter(
+        modifier = modifier,
+        value = formattedDistance,
+        name = "Total distance"
+    )
+
+    StartPauseResumeButton(vm = vm)
+
+    val formattedTime = remember(stats.totalMillis) { stats.totalMillis.div(1000).toString() + 's' }
+    PrimaryMeter(
+        modifier = modifier,
+        value = formattedTime,
+        name = "Total time"
+    )
 }
 
 @Composable
@@ -201,7 +202,7 @@ private fun StartPauseResumeButton(vm: CurrentWorkoutViewModel) {
 @Composable
 private fun PrimaryMeter(modifier: Modifier = Modifier, value: String, name: String) {
     Column(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(

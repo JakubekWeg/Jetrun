@@ -201,4 +201,27 @@ class WorkoutStatsComponentTest {
             assertEquals(2235, stats.value.totalMillis)
             assertEquals(50.0, stats.value.totalMeters, .0)
         }
+
+    @Test
+    fun `resetStats() resets stats`() = WorkoutStatsComponent().run {
+        assertEquals(0.0, stats.value.totalMeters, .0)
+        assertEquals(0, stats.value.totalMillis)
+        assertEquals(0.0, stats.value.currentAverageSpeed, .0)
+
+        update(mock(LocationSnapshot::class.java).apply {
+            `when`(distanceTo(anyNonNull())).thenReturn(10.0)
+        }, 0)
+
+        for (i in 1..15) {
+            update(mock(LocationSnapshot::class.java).apply {
+                `when`(distanceTo(anyNonNull())).thenReturn(7.0)
+            }, i * 1000L)
+        }
+
+        resetStats()
+
+        assertEquals(0.0, stats.value.totalMeters, .0)
+        assertEquals(0, stats.value.totalMillis)
+        assertEquals(0.0, stats.value.currentAverageSpeed, .0)
+    }
 }

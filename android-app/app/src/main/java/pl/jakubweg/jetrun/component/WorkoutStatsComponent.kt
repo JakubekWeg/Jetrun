@@ -57,6 +57,12 @@ class WorkoutStatsComponent @Inject constructor(
         return SnapshotOfferResult.Accepted
     }
 
+    fun resetStats() {
+        lastTimestamp = 0L
+        lastLocationSnapshot = null
+        _stats.value = WorkoutStats(0.0, 0, 0.0)
+    }
+
     private fun advanceStatsAndCalculateAverageSpeedKMH(
         currentTimeMillis: Long,
         totalDistance: Double

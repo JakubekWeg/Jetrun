@@ -1,21 +1,30 @@
 package pl.jakubweg.jetrun.ui.model
 
 import kotlinx.coroutines.flow.MutableStateFlow
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 import org.mockito.Mockito.*
 import pl.jakubweg.jetrun.component.WorkoutState
+import pl.jakubweg.jetrun.component.WorkoutStats
+import pl.jakubweg.jetrun.component.WorkoutStatsComponent
 import pl.jakubweg.jetrun.component.WorkoutTrackerComponent
 
 @RunWith(JUnit4::class)
 class CurrentWorkoutViewModelTest {
     private val workoutState = MutableStateFlow<WorkoutState>(WorkoutState.None)
-    private val tracker = mock(WorkoutTrackerComponent::class.java).apply {
-        `when`(workoutState).thenReturn(this@CurrentWorkoutViewModelTest.workoutState)
+    private val tracker = mock(WorkoutTrackerComponent::class.java)
+    private val workoutStats = MutableStateFlow(WorkoutStats(5.213, 61202, 12.5))
+    private val stats = mock(WorkoutStatsComponent::class.java)
+
+    init {
+        `when`(stats.stats).thenReturn(workoutStats)
+        `when`(tracker.workoutState).thenReturn(workoutState)
     }
-    private val vm = CurrentWorkoutViewModel(tracker)
+
+    private val vm = CurrentWorkoutViewModel(tracker, stats)
 
     @Test
     fun `forwards status from tracker`() {
@@ -83,5 +92,10 @@ class CurrentWorkoutViewModelTest {
         verify(tracker, times(0)).resumeWorkout()
         verify(tracker, times(0)).pauseWorkout()
         verify(tracker, times(1)).stopWorkout()
+    }
+
+    @Test
+    fun `forwards stats`() {
+        assertTrue(vm.currentWorkoutStats === workoutStats)
     }
 }
