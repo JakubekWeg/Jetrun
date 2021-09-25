@@ -75,11 +75,15 @@ class WorkoutStatsComponent @Inject constructor(
     ): Double {
         distanceQueue.removeAll { it.timestamp < currentTimeMillis - 15_000 }
         val latest = DistanceTimestamp(totalDistance, currentTimeMillis)
-        val distanceForAverage = latest.totalDistance - distanceQueue.first().totalDistance
-        val millisForAverage = latest.timestamp - distanceQueue.first().timestamp
-        val speedKMH = (distanceForAverage / 1000.0) / (millisForAverage / 1000.0 / 60.0 / 60.0)
+        val first = distanceQueue.firstOrNull()
         distanceQueue.addLast(latest)
-        return speedKMH
+        return if (first != null) {
+            val distanceForAverage = latest.totalDistance - first.totalDistance
+            val millisForAverage = latest.timestamp - first.timestamp
+            (distanceForAverage / 1000.0) / (millisForAverage / 1000.0 / 60.0 / 60.0)
+        } else {
+            0.0
+        }
     }
 
     fun onPaused() {

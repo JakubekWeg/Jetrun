@@ -228,4 +228,29 @@ class WorkoutStatsComponentTest {
         assertNull(lastLocationSnapshot)
         assertEquals(0, distanceQueue.size)
     }
+
+    @Test
+    fun `restores proper speed after 15 seconds of no updates`() = WorkoutStatsComponent().run {
+        assertEquals(0.0, stats.value.totalMeters, .0)
+        assertEquals(0, stats.value.totalMillis)
+        assertEquals(0.0, stats.value.currentAverageSpeed, .0)
+
+        val lastLocation = mock(LocationSnapshot::class.java).apply {
+            `when`(distanceTo(anyNonNull())).thenReturn(50.0)
+        }
+        for (i in 15..30) {
+            update(lastLocation, i * 1000L)
+        }
+
+
+        assertEquals(0.0, stats.value.totalMeters, .0)
+        assertEquals(15_000, stats.value.totalMillis)
+        assertEquals(0.0, stats.value.currentAverageSpeed, .0)
+
+        update(lastLocation, 46_000L)
+
+        assertEquals(0.0, stats.value.totalMeters, .0)
+        assertEquals(31_000, stats.value.totalMillis)
+        assertEquals(0.0, stats.value.currentAverageSpeed, .0)
+    }
 }

@@ -43,7 +43,10 @@ data class LocationSnapshot constructor(
         val t3 = sin(a1) * sin(b1)
         val tt = acos(t1 + t2 + t3)
 
-        return 6366000.0 * tt
+        return if (tt.isNaN())
+            0.0
+        else
+            6366000.0 * tt
     }
 }
 
