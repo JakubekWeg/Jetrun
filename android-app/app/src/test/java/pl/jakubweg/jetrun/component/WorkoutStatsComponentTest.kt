@@ -1,6 +1,7 @@
 package pl.jakubweg.jetrun.component
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.mock
@@ -223,5 +224,8 @@ class WorkoutStatsComponentTest {
         assertEquals(0.0, stats.value.totalMeters, .0)
         assertEquals(0, stats.value.totalMillis)
         assertEquals(0.0, stats.value.currentAverageSpeed, .0)
+        assertEquals(0L, lastTimestamp)
+        assertNull(lastLocationSnapshot)
+        assertEquals(0, distanceQueue.size)
     }
 }

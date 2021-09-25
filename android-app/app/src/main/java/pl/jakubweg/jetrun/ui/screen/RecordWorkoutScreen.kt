@@ -245,21 +245,21 @@ private fun WorkoutTypeSelector() {
 private fun MissingGPSIndicator(vm: CurrentWorkoutViewModel) {
     val state by vm.currentWorkoutStatus.collectAsState()
     val isVisible = remember(state) { state is WaitingForLocation }
-    val isMissingPermission = remember(state) { state === NoPermission }
 
     AnimatedVisibility(visible = isVisible) {
+        val isMissingPermission = remember(state) { state === NoPermission }
         val shape = RoundedCornerShape(100)
         val context = LocalContext.current as? Activity?
         Row(
             modifier = Modifier
-                .clickable(enabled = isMissingPermission, onClick = {
-                    requestLocationPermission(context ?: return@clickable)
-                })
-                .animateContentSize()
                 .padding(20.dp)
+                .animateContentSize()
                 .shadow(elevation = 8.dp, shape = shape)
                 .clip(shape)
                 .background(MaterialTheme.colors.error)
+                .clickable(enabled = isMissingPermission, onClick = {
+                    requestLocationPermission(context ?: return@clickable)
+                })
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

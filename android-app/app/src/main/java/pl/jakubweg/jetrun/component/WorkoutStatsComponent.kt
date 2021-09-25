@@ -1,5 +1,6 @@
 package pl.jakubweg.jetrun.component
 
+import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
@@ -20,12 +21,16 @@ class WorkoutStatsComponent @Inject constructor(
     private val _stats = MutableStateFlow(WorkoutStats(0.0, 0, 0.0))
     val stats = _stats.asStateFlow()
 
-    private var lastLocationSnapshot: LocationSnapshot? = null
-    private var lastTimestamp = 0L
+    @VisibleForTesting
+    var lastLocationSnapshot: LocationSnapshot? = null
 
-    private data class DistanceTimestamp(val totalDistance: Double, val timestamp: Long)
+    @VisibleForTesting
+    var lastTimestamp = 0L
 
-    private var distanceQueue = ArrayDeque<DistanceTimestamp>()
+    data class DistanceTimestamp(val totalDistance: Double, val timestamp: Long)
+
+    @VisibleForTesting
+    var distanceQueue = ArrayDeque<DistanceTimestamp>()
 
     fun update(
         latestSnapshot: LocationSnapshot,
@@ -60,6 +65,7 @@ class WorkoutStatsComponent @Inject constructor(
     fun resetStats() {
         lastTimestamp = 0L
         lastLocationSnapshot = null
+        distanceQueue.clear()
         _stats.value = WorkoutStats(0.0, 0, 0.0)
     }
 
