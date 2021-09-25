@@ -9,6 +9,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.location.LocationManager.GPS_PROVIDER
 import android.os.Bundle
+import androidx.annotation.AnyThread
 import androidx.annotation.MainThread
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.MutableLiveData
@@ -53,31 +54,58 @@ data class LocationSnapshot constructor(
 private val Location.asSnapshot: LocationSnapshot
     get() = LocationSnapshot(latitude, longitude, altitude, time)
 
+typealias LocationRequestId = Int
 
 class LocationProviderComponent @Inject constructor(
     private val context: Context,
     private val locationManager: LocationManager,
     defaultDispatcher: CoroutineDispatcher,
 ) : LocationListener {
+    private var nextRequestId = 1
+    private val activeRequestIds = mutableSetOf<LocationRequestId>()
     private val _lastKnownLocation = MutableLiveData<LocationSnapshot?>()
     val lastKnownLocation = _lastKnownLocation.nonMutable
 
     private val scope = CoroutineScope(defaultDispatcher)
 
-    @SuppressLint("MissingPermission")
-    fun start() {
-        check(hasLocationPermission)
-
-        locationManager.requestLocationUpdates(GPS_PROVIDER, 1000L, 0f, this)
-    }
 
     @VisibleForTesting
     val hasLocationPermission
         get() = context
             .checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    fun stop() {
+    @MainThread
+    fun start(): LocationRequestId {
+        check(hasLocationPermission)
+
+        synchronized(this) {
+            val needsToActivateUpdates = activeRequestIds.isEmpty()
+            if (needsToActivateUpdates)
+                activateAndroidProvider()
+
+            val thisRequestId: LocationRequestId = nextRequestId++
+            activeRequestIds.add(thisRequestId)
+            return thisRequestId
+        }
+    }
+
+    @AnyThread
+    fun stop(id: LocationRequestId) {
+        synchronized(this) {
+            activeRequestIds.remove(id)
+            val needsToDeactivate = activeRequestIds.isEmpty()
+            if (needsToDeactivate)
+                deactivateAndroidProvider()
+        }
+    }
+
+    private fun deactivateAndroidProvider() {
         locationManager.removeUpdates(this)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun activateAndroidProvider() {
+        locationManager.requestLocationUpdates(GPS_PROVIDER, 1000L, 0f, this)
     }
 
     @MainThread

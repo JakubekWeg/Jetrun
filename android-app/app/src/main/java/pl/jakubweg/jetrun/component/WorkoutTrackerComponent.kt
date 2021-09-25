@@ -1,5 +1,6 @@
 package pl.jakubweg.jetrun.component
 
+import androidx.annotation.MainThread
 import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,17 +44,27 @@ class WorkoutTrackerComponent @Inject constructor(
 
     val workoutState = _workoutState.asStateFlow()
 
+    @MainThread
     fun start() {
         check(_workoutState.value is None) { "Workout already started" }
 
         if (location.hasLocationPermission) {
-            location.start()
+            startGettingLocation()
             _workoutState.value = InitialWaiting
         } else {
             _workoutState.value = NoPermission
         }
 
         timer.start(1000L, this::timerCallback)
+    }
+
+    private var locationProviderRequestId: LocationRequestId? = null
+
+    @MainThread
+    private fun startGettingLocation() {
+        synchronized(this) {
+            locationProviderRequestId = location.start()
+        }
     }
 
     fun stopWorkout() {
@@ -77,7 +88,7 @@ class WorkoutTrackerComponent @Inject constructor(
         when (val currentState = _workoutState.value) {
             NoPermission -> {
                 if (location.hasLocationPermission) {
-                    withContext(Dispatchers.Main) { location.start() }
+                    withContext(Dispatchers.Main) { startGettingLocation() }
                     _workoutState.value = InitialWaiting
                 }
             }
@@ -113,7 +124,7 @@ class WorkoutTrackerComponent @Inject constructor(
 
             RequestedResume -> {
                 if (location.hasLocationPermission) {
-                    withContext(Dispatchers.Main) { location.start() }
+                    withContext(Dispatchers.Main) { startGettingLocation() }
 
                     _workoutState.value = location.lastKnownLocation.value?.let {
                         WaitingForLocation.AfterPauseWaiting(it)
@@ -137,7 +148,7 @@ class WorkoutTrackerComponent @Inject constructor(
     @VisibleForTesting
     fun cleanUp() {
         timer.stop()
-        location.stop()
+        locationProviderRequestId?.also(location::stop)
         stats.resetStats()
     }
 }

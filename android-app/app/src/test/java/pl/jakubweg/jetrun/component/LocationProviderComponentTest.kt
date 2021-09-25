@@ -64,7 +64,7 @@ class LocationProviderComponentTest : TestCase() {
             defaultDispatcher = testDispatcher
         )
 
-        c.start()
+        val id = c.start()
 
         // check if .start() checks permission
         verify(context, times(1)).checkSelfPermission(anyString())
@@ -75,7 +75,7 @@ class LocationProviderComponentTest : TestCase() {
             anyNonNull() as LocationListener
         )
 
-        c.stop()
+        c.stop(id)
 
         verify(locationManager, times(1)).removeUpdates(anyNonNull() as LocationListener)
     }
@@ -97,7 +97,6 @@ class LocationProviderComponentTest : TestCase() {
 
         c.start()
     }
-
 
     @Test
     fun `Publishes location`() {
@@ -148,7 +147,6 @@ class LocationProviderComponentTest : TestCase() {
         assertEquals(4, value.timestamp)
     }
 
-
     @Test
     fun `Publishes location after stop and then start again`() {
         val location = mock(Location::class.java)
@@ -180,7 +178,7 @@ class LocationProviderComponentTest : TestCase() {
         )
 
         assertNull(c.lastKnownLocation.value)
-        c.start()
+        val id = c.start()
         listener.get()!!.onLocationChanged(location)
         assertNull(c.lastKnownLocation.value)
         testDispatcher.resumeDispatcher()
@@ -188,7 +186,7 @@ class LocationProviderComponentTest : TestCase() {
 
         assertEquals(1.0, c.lastKnownLocation.value?.latitude ?: 0.0, 0.0)
 
-        c.stop()
+        c.stop(id)
         testDispatcher.resumeDispatcher()
         testDispatcher.pauseDispatcher()
 
@@ -200,6 +198,53 @@ class LocationProviderComponentTest : TestCase() {
 
         `when`(location.latitude).thenReturn(2.0)
         assertEquals(2.0, c.lastKnownLocation.value?.latitude ?: 0.0, 0.0)
+    }
+
+    @Test
+    fun `Multiple concurrent requests work properly`() {
+        val context = mock(Context::class.java)
+        `when`(context.checkSelfPermission(anyString())).thenReturn(PERMISSION_GRANTED)
+
+        val locationManager = mock(LocationManager::class.java)
+
+        val testDispatcher = TestCoroutineDispatcher()
+        testDispatcher.pauseDispatcher()
+
+        val c = LocationProviderComponent(
+            context = context,
+            locationManager = locationManager,
+            defaultDispatcher = testDispatcher
+        )
+
+        val id1 = c.start()
+
+        verify(locationManager, times(1)).requestLocationUpdates(
+            anyString(),
+            anyLong(),
+            anyFloat(),
+            anyNonNull() as LocationListener
+        )
+
+        val id2 = c.start()
+        // should still be 1 as provider was already activated
+        verify(locationManager, times(1)).requestLocationUpdates(
+            anyString(),
+            anyLong(),
+            anyFloat(),
+            anyNonNull() as LocationListener
+        )
+
+        c.stop(id1)
+        // should not have called, because there is still one request
+        verify(locationManager, times(0)).removeUpdates(anyNonNull() as LocationListener)
+
+        c.stop(id1)
+        // check if ignores this stop call
+        verify(locationManager, times(0)).removeUpdates(anyNonNull() as LocationListener)
+
+        c.stop(id2)
+        // now should be removed
+        verify(locationManager, times(1)).removeUpdates(anyNonNull() as LocationListener)
     }
 }
 

@@ -95,7 +95,7 @@ class WorkoutTrackerComponentTest : TestCase() {
         testCoroutineDispatcher.cleanupTestCoroutines()
 
         verify(locationProviderComponent, times(1)).start()
-        verify(locationProviderComponent, times(1)).stop()
+        verify(locationProviderComponent, times(1)).stop(anyInt())
     }
 
     @Test
@@ -106,7 +106,8 @@ class WorkoutTrackerComponentTest : TestCase() {
 
         c.cleanUp()
 
-        verify(location, times(1)).stop()
+        // should be zero as it didn't start
+        verify(location, times(0)).stop(anyInt())
         verify(timer, times(1)).stop()
         verify(workoutStatsComponent, times(1)).resetStats()
     }
