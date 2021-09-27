@@ -1,6 +1,7 @@
 package pl.jakubweg.jetrun.ui.screen
 
 import android.widget.Toast
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
@@ -60,6 +61,11 @@ fun ComposableMapView(modifier: Modifier) {
 
     MapViewLocationUpdater(vm)
 
+    val isDarkTheme = isSystemInDarkTheme()
+    LaunchedEffect(isDarkTheme) {
+        vm.darkTheme = isDarkTheme
+    }
+
     AndroidView(
         modifier = modifier,
         factory = { context -> MapView(context, mapOptions) },
@@ -68,7 +74,7 @@ fun ComposableMapView(modifier: Modifier) {
             view.onStart()
             view.onResume()
             view.getMapAsync { map ->
-                vm.setMap(map)
+                vm.setMap(view.context, map)
             }
         }
     )

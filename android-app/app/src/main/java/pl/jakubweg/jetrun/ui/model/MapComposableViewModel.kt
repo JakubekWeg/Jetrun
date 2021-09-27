@@ -1,6 +1,7 @@
 package pl.jakubweg.jetrun.ui.model
 
 import android.annotation.SuppressLint
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -8,7 +9,9 @@ import com.google.android.gms.maps.GoogleMapOptions
 import com.google.android.gms.maps.LocationSource
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
+import pl.jakubweg.jetrun.R
 import pl.jakubweg.jetrun.component.LocationProviderComponent
 import pl.jakubweg.jetrun.component.LocationRequestId
 import pl.jakubweg.jetrun.component.LocationSnapshot
@@ -24,10 +27,13 @@ class MapComposableViewModel @Inject constructor(
     private var locationSourceListener: LocationSource.OnLocationChangedListener? = null
     private var locationRequestId: LocationRequestId = 0
     private var _visible = false
+    private var mapStyleOptions: MapStyleOptions? = null
 
     companion object {
         private const val DEFAULT_ZOOM_LEVEL = 14.5F
     }
+
+    val lastKnownLocation = location.lastKnownLocation
 
     var visible: Boolean
         get() = _visible
@@ -36,6 +42,8 @@ class MapComposableViewModel @Inject constructor(
             _visible = value
             considerMakingLocationRequest()
         }
+
+    var darkTheme: Boolean = false
 
     private fun setMapPositionToBeLatestLocation(instant: Boolean): Boolean {
         val snapshot = location.lastKnownLocation.value ?: return false
@@ -60,15 +68,22 @@ class MapComposableViewModel @Inject constructor(
         }
     }
 
-    val lastKnownLocation = location.lastKnownLocation
 
     @SuppressLint("MissingPermission")
-    fun setMap(map: GoogleMap?) {
+    fun setMap(context: Context?, map: GoogleMap?) {
         mapReference = WeakReference(map)
         considerMakingLocationRequest()
         map ?: return
         map.setLocationSource(this)
         map.isMyLocationEnabled = true
+
+        context ?: return
+        if (darkTheme) {
+            if (mapStyleOptions == null)
+                mapStyleOptions =
+                    MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style_dark)
+            map.setMapStyle(mapStyleOptions)
+        }
     }
 
     fun pingLocationSource(snapshot: LocationSnapshot?) {
