@@ -69,10 +69,6 @@ class LocationProviderComponent @Inject constructor(
     private val locationManager: LocationManager,
     defaultDispatcher: CoroutineDispatcher,
 ) : LocationListener {
-    init {
-        val name = this.toString().run { substring(indexOf('@') + 1) }
-        println("----------------------------------CREATE: $name")
-    }
 
     private var nextRequestId = 1
     private var requestedUpdatesFromAndroid = false

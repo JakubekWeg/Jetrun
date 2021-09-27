@@ -3,10 +3,7 @@ package pl.jakubweg.jetrun.ui.model
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.lifecycle.ViewModel
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.GoogleMapOptions
-import com.google.android.gms.maps.LocationSource
+import com.google.android.gms.maps.*
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
@@ -23,8 +20,13 @@ class MapComposableViewModel @Inject constructor(
     private val location: LocationProviderComponent
 ) : ViewModel(), LocationSource {
 
+    init {
+        println("INIT")
+    }
+
+    var mapViewReference = WeakReference<MapView>(null)
     private var hadAnyLocation = false
-    private var mapReference = WeakReference<GoogleMap>(null)
+    private var mapReference: GoogleMap? = null
     private var locationSourceListener: LocationSource.OnLocationChangedListener? = null
     private var locationRequestId: LocationRequestId = 0
     private var _visible = false
@@ -48,7 +50,7 @@ class MapComposableViewModel @Inject constructor(
 
     private fun setMapPositionToBeLatestLocation(instant: Boolean): Boolean {
         val snapshot = location.lastKnownLocation.value ?: return false
-        val map = mapReference.get() ?: return false
+        val map = mapReference ?: return false
         map.animateCamera(
             CameraUpdateFactory.newLatLngZoom(
                 LatLng(snapshot.latitude, snapshot.longitude), DEFAULT_ZOOM_LEVEL
@@ -58,7 +60,7 @@ class MapComposableViewModel @Inject constructor(
     }
 
     private fun considerMakingLocationRequest() {
-        val shouldActivate = _visible && mapReference.get() != null
+        val shouldActivate = _visible && mapReference != null
         val isActive = locationRequestId != 0
         if (shouldActivate != isActive) {
             location.stop(locationRequestId)
@@ -69,10 +71,9 @@ class MapComposableViewModel @Inject constructor(
         }
     }
 
-
     @SuppressLint("MissingPermission")
     fun setMap(context: Context?, map: GoogleMap?) {
-        mapReference = WeakReference(map)
+        mapReference = map
         considerMakingLocationRequest()
         map ?: return
         map.setLocationSource(this)
@@ -81,8 +82,8 @@ class MapComposableViewModel @Inject constructor(
         context ?: return
         if (darkTheme) {
             if (mapStyleOptions == null)
-                mapStyleOptions =
-                    MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style_dark)
+                mapStyleOptions = MapStyleOptions
+                    .loadRawResourceStyle(context, R.raw.map_style_dark)
             map.setMapStyle(mapStyleOptions)
         }
     }
@@ -107,7 +108,7 @@ class MapComposableViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        mapReference = WeakReference(null)
+        mapReference = null
         considerMakingLocationRequest()
     }
 
