@@ -246,5 +246,96 @@ class LocationProviderComponentTest : TestCase() {
         // now should be removed
         verify(locationManager, times(1)).removeUpdates(anyNonNull() as LocationListener)
     }
+
+
+    @Test
+    fun `Starting listener with requireStart = false activates system updates if permission is granted`() {
+        val context = mock(Context::class.java)
+        `when`(context.checkSelfPermission(anyString())).thenReturn(PERMISSION_GRANTED)
+
+        val locationManager = mock(LocationManager::class.java)
+
+        val testDispatcher = TestCoroutineDispatcher()
+        testDispatcher.pauseDispatcher()
+
+        val c = LocationProviderComponent(
+            context = context,
+            locationManager = locationManager,
+            defaultDispatcher = testDispatcher
+        )
+
+        c.start(requireStart = false)
+
+        verify(locationManager, times(1)).requestLocationUpdates(
+            anyString(),
+            anyLong(),
+            anyFloat(),
+            anyNonNull() as LocationListener
+        )
+    }
+
+    @Test
+    fun `Starting listener with requireStart = false doesn't activate system updates if permission is denied`() {
+        val context = mock(Context::class.java)
+        `when`(context.checkSelfPermission(anyString())).thenReturn(PERMISSION_DENIED)
+
+        val locationManager = mock(LocationManager::class.java)
+
+        val testDispatcher = TestCoroutineDispatcher()
+        testDispatcher.pauseDispatcher()
+
+        val c = LocationProviderComponent(
+            context = context,
+            locationManager = locationManager,
+            defaultDispatcher = testDispatcher
+        )
+
+        c.start(requireStart = false)
+
+        verify(locationManager, times(0)).requestLocationUpdates(
+            anyString(),
+            anyLong(),
+            anyFloat(),
+            anyNonNull() as LocationListener
+        )
+    }
+
+
+    @Test
+    fun `Starting listener with requireStart = false will activate listener when start called again`() {
+        val context = mock(Context::class.java)
+        `when`(context.checkSelfPermission(anyString())).thenReturn(PERMISSION_DENIED)
+
+        val locationManager = mock(LocationManager::class.java)
+
+        val testDispatcher = TestCoroutineDispatcher()
+        testDispatcher.pauseDispatcher()
+
+        val c = LocationProviderComponent(
+            context = context,
+            locationManager = locationManager,
+            defaultDispatcher = testDispatcher
+        )
+
+        c.start(requireStart = false)
+
+        verify(locationManager, times(0)).requestLocationUpdates(
+            anyString(),
+            anyLong(),
+            anyFloat(),
+            anyNonNull() as LocationListener
+        )
+
+        `when`(context.checkSelfPermission(anyString())).thenReturn(PERMISSION_GRANTED)
+
+        c.start(requireStart = false)
+
+        verify(locationManager, times(1)).requestLocationUpdates(
+            anyString(),
+            anyLong(),
+            anyFloat(),
+            anyNonNull() as LocationListener
+        )
+    }
 }
 
