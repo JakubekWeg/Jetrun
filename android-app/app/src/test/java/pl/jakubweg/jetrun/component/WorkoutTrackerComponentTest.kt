@@ -1,10 +1,10 @@
 package pl.jakubweg.jetrun.component
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
-import androidx.lifecycle.MutableLiveData
 import junit.framework.TestCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestCoroutineDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -35,7 +35,7 @@ class WorkoutTrackerComponentTest : TestCase() {
         ).thenReturn(SnapshotOfferResult.Accepted)
     }
 
-    private val lastLocationData = MutableLiveData<LocationSnapshot>()
+    private val lastLocationData = MutableStateFlow<LocationSnapshot?>(null)
 
     private val locationProviderComponent = mock(LocationProviderComponent::class.java).apply {
         `when`(this.hasLocationPermission).thenReturn(true)

@@ -22,6 +22,7 @@ import javax.inject.Inject
 class MapComposableViewModel @Inject constructor(
     private val location: LocationProviderComponent
 ) : ViewModel(), LocationSource {
+
     private var hadAnyLocation = false
     private var mapReference = WeakReference<GoogleMap>(null)
     private var locationSourceListener: LocationSource.OnLocationChangedListener? = null
@@ -87,10 +88,11 @@ class MapComposableViewModel @Inject constructor(
     }
 
     fun pingLocationSource(snapshot: LocationSnapshot?) {
+        snapshot ?: return
         locationSourceListener?.onLocationChanged(
-            snapshot?.toAndroidLocation() ?: return
+            snapshot.toAndroidLocation()
         )
-        if (snapshot != null && !hadAnyLocation) {
+        if (!hadAnyLocation) {
             if (setMapPositionToBeLatestLocation(instant = false))
                 hadAnyLocation = true
         }

@@ -3,7 +3,6 @@ package pl.jakubweg.jetrun.ui.screen
 import android.widget.Toast
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -82,7 +81,7 @@ fun ComposableMapView(modifier: Modifier) {
 
 @Composable
 private fun MapViewLocationUpdater(vm: MapComposableViewModel) {
-    val location by vm.lastKnownLocation.observeAsState()
+    val location by vm.lastKnownLocation.collectAsState()
     LaunchedEffect(location) {
         vm.pingLocationSource(location)
     }

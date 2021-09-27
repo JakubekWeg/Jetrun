@@ -11,12 +11,13 @@ import android.os.Bundle
 import androidx.annotation.AnyThread
 import androidx.annotation.MainThread
 import androidx.annotation.VisibleForTesting
-import androidx.lifecycle.MutableLiveData
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import pl.jakubweg.jetrun.util.nonMutable
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.math.acos
 import kotlin.math.cos
 import kotlin.math.sin
@@ -62,16 +63,22 @@ private val Location.asSnapshot: LocationSnapshot
 
 typealias LocationRequestId = Int
 
+@Singleton
 class LocationProviderComponent @Inject constructor(
     private val context: Context,
     private val locationManager: LocationManager,
     defaultDispatcher: CoroutineDispatcher,
 ) : LocationListener {
+    init {
+        val name = this.toString().run { substring(indexOf('@') + 1) }
+        println("----------------------------------CREATE: $name")
+    }
+
     private var nextRequestId = 1
     private var requestedUpdatesFromAndroid = false
     private val activeRequestIds = mutableSetOf<LocationRequestId>()
-    private val _lastKnownLocation = MutableLiveData<LocationSnapshot?>()
-    val lastKnownLocation = _lastKnownLocation.nonMutable
+    private val _lastKnownLocation = MutableStateFlow<LocationSnapshot?>(null)
+    val lastKnownLocation = _lastKnownLocation.asStateFlow()
 
     private val scope = CoroutineScope(defaultDispatcher)
 
@@ -125,7 +132,7 @@ class LocationProviderComponent @Inject constructor(
     @MainThread
     override fun onLocationChanged(location: Location) {
         scope.launch {
-            _lastKnownLocation.postValue(location.asSnapshot)
+            _lastKnownLocation.value = location.asSnapshot
         }
     }
 
