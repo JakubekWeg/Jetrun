@@ -2,33 +2,23 @@ package pl.jakubweg.jetrun.ui.screen
 
 import android.widget.Toast
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.GoogleMapOptions
 import com.google.android.gms.maps.MapView
 import pl.jakubweg.jetrun.R
-import java.lang.ref.WeakReference
-import java.util.concurrent.atomic.AtomicReference
-
-class MapComposableViewModel : ViewModel() {
-    private var mapReference = AtomicReference(WeakReference<GoogleMap>(null))
-
-    fun setMap(mapView: GoogleMap) {
-        mapReference.set(WeakReference(mapView))
-    }
-}
+import pl.jakubweg.jetrun.ui.model.MapComposableViewModel
 
 @Composable
 fun ComposableMapView(modifier: Modifier) {
-    val vm: MapComposableViewModel = viewModel()
-    val mapOptions = rememberMapOptions()
+    val vm: MapComposableViewModel = hiltViewModel()
+
+    val mapOptions = remember { vm.createMapOptions() }
 
     val mapView by remember { mutableStateOf<MapView?>(null) }
 
@@ -67,6 +57,9 @@ fun ComposableMapView(modifier: Modifier) {
     }
 
     CheckIfApiKeyIsMissing()
+
+    MapViewLocationUpdater(vm)
+
     AndroidView(
         modifier = modifier,
         factory = { context -> MapView(context, mapOptions) },
@@ -82,15 +75,16 @@ fun ComposableMapView(modifier: Modifier) {
 }
 
 @Composable
-private fun rememberMapOptions() = remember {
-    GoogleMapOptions()
-        .compassEnabled(false)
-        .mapType(GoogleMap.MAP_TYPE_NORMAL)
-        .mapToolbarEnabled(false)
-        .rotateGesturesEnabled(false)
-        .tiltGesturesEnabled(false)
-//            .minZoomPreference(8F)
-        .maxZoomPreference(17F)
+private fun MapViewLocationUpdater(vm: MapComposableViewModel) {
+    val location by vm.lastKnownLocation.observeAsState()
+    LaunchedEffect(location) {
+        vm.pingLocationSource(location)
+    }
+
+    DisposableEffect("") {
+        vm.visible = true
+        onDispose { vm.visible = false }
+    }
 }
 
 @Composable
@@ -98,6 +92,7 @@ private fun CheckIfApiKeyIsMissing() {
     val context = LocalContext.current
     LaunchedEffect("") {
         val key = context.getString(R.string.google_maps_key)
+        // do not replace this string in the following statement, change only inside strings.xml files
         if (key.contains("YOUR_KEY_HERE"))
             Toast.makeText(
                 context,

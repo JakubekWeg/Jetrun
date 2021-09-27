@@ -1,0 +1,115 @@
+package pl.jakubweg.jetrun.ui.model
+
+import android.annotation.SuppressLint
+import androidx.lifecycle.ViewModel
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.GoogleMapOptions
+import com.google.android.gms.maps.LocationSource
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import dagger.hilt.android.lifecycle.HiltViewModel
+import pl.jakubweg.jetrun.component.LocationProviderComponent
+import pl.jakubweg.jetrun.component.LocationRequestId
+import pl.jakubweg.jetrun.component.LocationSnapshot
+import java.lang.ref.WeakReference
+import javax.inject.Inject
+
+@HiltViewModel
+class MapComposableViewModel @Inject constructor(
+    private val location: LocationProviderComponent
+) : ViewModel(), LocationSource {
+    private var hadAnyLocation = false
+    private var mapReference = WeakReference<GoogleMap>(null)
+    private var locationSourceListener: LocationSource.OnLocationChangedListener? = null
+    private var locationRequestId: LocationRequestId = 0
+    private var _visible = false
+
+    companion object {
+        private const val DEFAULT_ZOOM_LEVEL = 14.5F
+    }
+
+    var visible: Boolean
+        get() = _visible
+        set(value) {
+            if (_visible == value) return
+            _visible = value
+            considerMakingLocationRequest()
+        }
+
+    private fun setMapPositionToBeLatestLocation(instant: Boolean): Boolean {
+        val snapshot = location.lastKnownLocation.value ?: return false
+        val map = mapReference.get() ?: return false
+        map.animateCamera(
+            CameraUpdateFactory.newLatLngZoom(
+                LatLng(snapshot.latitude, snapshot.longitude), DEFAULT_ZOOM_LEVEL
+            ), if (instant) 1 else 300, null
+        )
+        return true
+    }
+
+    private fun considerMakingLocationRequest() {
+        val shouldActivate = _visible && mapReference.get() != null
+        val isActive = locationRequestId != 0
+        if (shouldActivate != isActive) {
+            location.stop(locationRequestId)
+            locationRequestId = if (shouldActivate) {
+                setMapPositionToBeLatestLocation(instant = true)
+                location.start(requireStart = false)
+            } else 0
+        }
+    }
+
+    val lastKnownLocation = location.lastKnownLocation
+
+    @SuppressLint("MissingPermission")
+    fun setMap(map: GoogleMap?) {
+        mapReference = WeakReference(map)
+        considerMakingLocationRequest()
+        map ?: return
+        map.setLocationSource(this)
+        map.isMyLocationEnabled = true
+    }
+
+    fun pingLocationSource(snapshot: LocationSnapshot?) {
+        locationSourceListener?.onLocationChanged(
+            snapshot?.toAndroidLocation() ?: return
+        )
+        if (snapshot != null && !hadAnyLocation) {
+            if (setMapPositionToBeLatestLocation(instant = false))
+                hadAnyLocation = true
+        }
+    }
+
+    override fun activate(listener: LocationSource.OnLocationChangedListener) {
+        locationSourceListener = listener
+        pingLocationSource(location.lastKnownLocation.value)
+    }
+
+    override fun deactivate() = Unit
+
+    override fun onCleared() {
+        super.onCleared()
+        mapReference = WeakReference(null)
+        considerMakingLocationRequest()
+    }
+
+    private val baseGoogleMapOptions = GoogleMapOptions()
+        .compassEnabled(false)
+        .mapType(GoogleMap.MAP_TYPE_NORMAL)
+        .mapToolbarEnabled(false)
+        .rotateGesturesEnabled(false)
+        .tiltGesturesEnabled(false)
+        .maxZoomPreference(17F)
+
+    fun createMapOptions(): GoogleMapOptions {
+        return location.lastKnownLocation.value?.run {
+            baseGoogleMapOptions.camera(
+                CameraPosition.fromLatLngZoom(
+                    LatLng(latitude, longitude),
+                    DEFAULT_ZOOM_LEVEL
+                )
+            )
+        } ?: baseGoogleMapOptions
+    }
+}
