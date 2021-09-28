@@ -50,7 +50,8 @@ class MapComposableViewModel @Inject constructor(
     private var locationRequestId: LocationRequestId = 0
     private var _visible = false
 
-    private var mapStyleOptions: MapStyleOptions? = null
+    private var lightMapStyleOptions: MapStyleOptions? = null
+    private var darkMapStyleOptions: MapStyleOptions? = null
 
     val lastKnownLocation = location.lastKnownLocation
 
@@ -89,21 +90,32 @@ class MapComposableViewModel @Inject constructor(
         }
     }
 
-    @SuppressLint("MissingPermission")
     fun setMap(context: Context?, map: GoogleMap?) {
         mapReference = map
         considerMakingLocationRequest()
-        map ?: return
-        map.setLocationSource(this)
-        map.isMyLocationEnabled = true
+        setUpMap(map ?: return)
 
         context ?: return
         if (darkTheme) {
-            if (mapStyleOptions == null)
-                mapStyleOptions = MapStyleOptions
+            if (darkMapStyleOptions == null)
+                darkMapStyleOptions = MapStyleOptions
                     .loadRawResourceStyle(context, R.raw.map_style_dark)
-            map.setMapStyle(mapStyleOptions)
+            map.setMapStyle(darkMapStyleOptions)
+        } else {
+            if (lightMapStyleOptions == null)
+                lightMapStyleOptions = MapStyleOptions
+                    .loadRawResourceStyle(context, R.raw.map_style_light)
+            map.setMapStyle(lightMapStyleOptions)
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun setUpMap(map: GoogleMap) {
+        map.setLocationSource(this)
+        map.isBuildingsEnabled = false
+        map.isIndoorEnabled = false
+        map.isTrafficEnabled = false
+        map.isMyLocationEnabled = true
     }
 
     fun pingLocationSource(snapshot: LocationSnapshot?) {
