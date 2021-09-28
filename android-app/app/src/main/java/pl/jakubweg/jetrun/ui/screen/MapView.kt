@@ -1,6 +1,5 @@
 package pl.jakubweg.jetrun.ui.screen
 
-import android.graphics.Color
 import android.widget.Toast
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
@@ -73,14 +72,14 @@ fun ComposableMapView(modifier: Modifier) {
         modifier = modifier,
         factory = { context -> MapView(context, mapOptions) },
         update = { view ->
-            view.setBackgroundColor(Color.BLACK)
             view.onCreate(null)
             view.onStart()
             view.onResume()
             view.getMapAsync { map ->
-                vm.mapViewReference = WeakReference(view)
-
-                vm.setMap(view.context, map)
+                vm.apply {
+                    mapViewReference = WeakReference(view)
+                    setMap(view.context, map)
+                }
             }
         }
     )

@@ -2,12 +2,19 @@ package pl.jakubweg.jetrun.ui.model
 
 import android.annotation.SuppressLint
 import android.content.Context
+import androidx.datastore.preferences.core.doublePreferencesKey
+import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.*
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import pl.jakubweg.jetrun.JetRunApplication
 import pl.jakubweg.jetrun.R
 import pl.jakubweg.jetrun.component.LocationProviderComponent
 import pl.jakubweg.jetrun.component.LocationRequestId
@@ -19,9 +26,21 @@ import javax.inject.Inject
 class MapComposableViewModel @Inject constructor(
     private val location: LocationProviderComponent
 ) : ViewModel(), LocationSource {
+    companion object {
+        private const val DEFAULT_ZOOM_LEVEL = 14.5F
+        private val LAST_LATITUDE = doublePreferencesKey("last_latitude")
+        private val LAST_LONGITUDE = doublePreferencesKey("last_longitude")
+    }
 
     init {
-        println("INIT")
+        viewModelScope.launch(Dispatchers.Default) {
+            JetRunApplication.dataStore.data.first().apply {
+                val lat = get(LAST_LATITUDE) ?: return@apply
+                val lng = get(LAST_LONGITUDE) ?: return@apply
+                baseGoogleMapOptions = baseGoogleMapOptions
+                    .camera(CameraPosition.fromLatLngZoom(LatLng(lat, lng), DEFAULT_ZOOM_LEVEL))
+            }
+        }
     }
 
     var mapViewReference = WeakReference<MapView>(null)
@@ -30,11 +49,8 @@ class MapComposableViewModel @Inject constructor(
     private var locationSourceListener: LocationSource.OnLocationChangedListener? = null
     private var locationRequestId: LocationRequestId = 0
     private var _visible = false
-    private var mapStyleOptions: MapStyleOptions? = null
 
-    companion object {
-        private const val DEFAULT_ZOOM_LEVEL = 14.5F
-    }
+    private var mapStyleOptions: MapStyleOptions? = null
 
     val lastKnownLocation = location.lastKnownLocation
 
@@ -44,6 +60,8 @@ class MapComposableViewModel @Inject constructor(
             if (_visible == value) return
             _visible = value
             considerMakingLocationRequest()
+            if (!value)
+                saveLastKnownLocation()
         }
 
     var darkTheme: Boolean = false
@@ -110,9 +128,21 @@ class MapComposableViewModel @Inject constructor(
         super.onCleared()
         mapReference = null
         considerMakingLocationRequest()
+        saveLastKnownLocation()
     }
 
-    private val baseGoogleMapOptions = GoogleMapOptions()
+    private fun saveLastKnownLocation() {
+        JetRunApplication.globalScope.launch {
+            location.lastKnownLocation.value?.apply {
+                JetRunApplication.dataStore.edit {
+                    it[LAST_LATITUDE] = latitude
+                    it[LAST_LONGITUDE] = longitude
+                }
+            }
+        }
+    }
+
+    private var baseGoogleMapOptions = GoogleMapOptions()
         .compassEnabled(false)
         .mapType(GoogleMap.MAP_TYPE_NORMAL)
         .mapToolbarEnabled(false)
