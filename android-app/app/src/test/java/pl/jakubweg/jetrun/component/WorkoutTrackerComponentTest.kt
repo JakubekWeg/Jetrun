@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestCoroutineDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,6 +42,17 @@ class WorkoutTrackerComponentTest : TestCase() {
     private val locationProviderComponent = mock(LocationProviderComponent::class.java).apply {
         `when`(this.hasLocationPermission).thenReturn(true)
         `when`(this.lastKnownLocation).thenReturn(lastLocationData)
+        `when`(this.start(anyBoolean())).thenReturn(1)
+    }
+
+    @Before
+    fun before() {
+        Dispatchers.setMain(testCoroutineDispatcher)
+    }
+
+    @After
+    fun after() {
+        Dispatchers.resetMain()
     }
 
     @get:Rule
@@ -88,7 +101,6 @@ class WorkoutTrackerComponentTest : TestCase() {
         assertTrue(c.workoutState.value is RequestedStop)
 
         testCoroutineDispatcher.advanceTimeBy(1000L)
-        testCoroutineDispatcher.resumeDispatcher()
 
         assertTrue(c.workoutState.value is None)
 
@@ -303,6 +315,66 @@ class WorkoutTrackerComponentTest : TestCase() {
         assertIs(NoPermission::class, c.workoutState.value)
     }
 
+    @Test
+    fun `When paused by user for longer then 60 seconds then location provider gets paused and then restarted when resumed`() {
+        `when`(locationProviderComponent.hasLocationPermission).thenReturn(true)
+        val c = createComponent()
+
+        c.start()
+        verify(locationProviderComponent, times(1)).start(anyBoolean())
+        verify(locationProviderComponent, times(0)).stop(anyInt())
+
+        c.pauseWorkout()
+        timeComponent.advanceTimeMillis(1000L)
+        testCoroutineDispatcher.advanceTimeBy(1000L)
+
+        // check if nothing stopped
+        verify(locationProviderComponent, times(1)).start(anyBoolean())
+        verify(locationProviderComponent, times(0)).stop(anyInt())
+
+        assertIs(Paused::class, c.workoutState.value)
+
+        for (i in 1..60) {
+            timeComponent.advanceTimeMillis(1000L)
+            testCoroutineDispatcher.advanceTimeBy(1000L)
+        }
+
+        // check if requested provider to stop
+        verify(locationProviderComponent, times(1)).start(anyBoolean())
+        verify(locationProviderComponent, times(1)).stop(anyInt())
+
+        c.resumeWorkout()
+
+        timeComponent.advanceTimeMillis(1000L)
+        testCoroutineDispatcher.advanceTimeBy(1000L)
+
+        // check if provider requested updates again
+        verify(locationProviderComponent, times(2)).start(anyBoolean())
+        verify(locationProviderComponent, times(1)).stop(anyInt())
+
+        assertIs(WaitingForLocation::class, c.workoutState.value)
+
+        c.pauseWorkout()
+
+        repeat(5) {
+            timeComponent.advanceTimeMillis(1000L)
+            testCoroutineDispatcher.advanceTimeBy(1000L)
+        }
+
+        // should not pause as time since pause is zero seconds
+        verify(locationProviderComponent, times(2)).start(anyBoolean())
+        verify(locationProviderComponent, times(1)).stop(anyInt())
+        assertIs(Paused::class, c.workoutState.value)
+
+        for (i in 1..60) {
+            timeComponent.advanceTimeMillis(1000L)
+            testCoroutineDispatcher.advanceTimeBy(1000L)
+        }
+
+        // check if requested provider to stop
+        verify(locationProviderComponent, times(2)).start(anyBoolean())
+        verify(locationProviderComponent, times(2)).stop(anyInt())
+    }
 
     private fun createComponent(
         timer: TimerCoroutineComponent = TimerCoroutineComponent(

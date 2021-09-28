@@ -4,6 +4,7 @@ import androidx.annotation.VisibleForTesting
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
+import javax.inject.Singleton
 
 data class WorkoutStats constructor(
     val totalMeters: Double,
@@ -16,6 +17,7 @@ sealed class SnapshotOfferResult {
     object Accepted : SnapshotOfferResult()
 }
 
+@Singleton
 class WorkoutStatsComponent @Inject constructor(
 ) {
     private val _stats = MutableStateFlow(WorkoutStats(0.0, 0, 0.0))

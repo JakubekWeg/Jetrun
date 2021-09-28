@@ -58,12 +58,14 @@ class WorkoutTrackerComponent @Inject constructor(
         timer.start(1000L, this::timerCallback)
     }
 
-    private var locationProviderRequestId: LocationRequestId? = null
+    private var locationProviderRequestId: LocationRequestId = 0
+    private var pausedAt: Long = 0L
 
     @MainThread
     private fun startGettingLocation() {
         synchronized(this) {
-            locationProviderRequestId = location.start()
+            if (locationProviderRequestId == 0)
+                locationProviderRequestId = location.start()
         }
     }
 
@@ -74,6 +76,8 @@ class WorkoutTrackerComponent @Inject constructor(
 
     fun pauseWorkout() {
         if (_workoutState.value is Started && _workoutState.value !is RequestedStop) {
+            if (_workoutState.value != Paused.ByUser)
+                pausedAt = time.currentTimeMillis()
             _workoutState.value = RequestedPause
         }
     }
@@ -97,6 +101,13 @@ class WorkoutTrackerComponent @Inject constructor(
                 if (location != null) {
                     _workoutState.value = Active
                     sendLocationUpdateToStatsComponent(location)
+                }
+            }
+
+            Paused.ByUser -> {
+                val duration = time.currentTimeMillis() - pausedAt
+                if (duration >= 60_000) {
+                    stopLocationUpdates()
                 }
             }
 
@@ -148,7 +159,14 @@ class WorkoutTrackerComponent @Inject constructor(
     @VisibleForTesting
     fun cleanUp() {
         timer.stop()
-        locationProviderRequestId?.also(location::stop)
+        stopLocationUpdates()
         stats.resetStats()
+    }
+
+    private fun stopLocationUpdates() {
+        if (locationProviderRequestId != 0) {
+            location.stop(locationProviderRequestId)
+            locationProviderRequestId = 0
+        }
     }
 }
