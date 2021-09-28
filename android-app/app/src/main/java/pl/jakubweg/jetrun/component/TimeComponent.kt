@@ -5,17 +5,13 @@ interface TimeComponent {
 }
 
 class RealTimeComponent : TimeComponent {
-    override fun currentTimeMillis(): Long {
-        return System.currentTimeMillis()
-    }
+    override fun currentTimeMillis() = System.currentTimeMillis()
 }
 
 class FakeTimeComponent : TimeComponent {
     private var _currentTime = 0L
 
-    override fun currentTimeMillis(): Long {
-        return _currentTime
-    }
+    override fun currentTimeMillis() = _currentTime
 
     fun advanceTimeMillis(millis: Long) {
         require(millis >= 0) { "Millis are required to be >= 0, got $millis" }
